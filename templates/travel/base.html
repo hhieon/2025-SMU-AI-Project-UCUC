@@ -1,0 +1,62 @@
+{% load static %}
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>{% block title %}LLM 관광 가이드{% endblock %}</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="{% static 'travel/style.css' %}">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='64' height='64'%3E%3Ctext y='.9em' font-size='50'%3E🧭%3C/text%3E%3C/svg%3E">
+</head>
+<body class="bg-slate-50 text-slate-900">
+  <header class="bg-gradient-to-r from-sky-600 to-indigo-600 text-white">
+    <div class="max-w-6xl mx-auto px-4 py-4 flex items-center justify-between">
+      <a href="/guide/" class="flex items-center gap-2 font-semibold text-lg">
+        <span class="text-2xl">🧭</span> <span>LLM 관광 가이드</span>
+      </a>
+      <nav class="flex items-center gap-4">
+        <a class="navlink" href="/guide/">도시 가이드</a>
+        <a class="navlink" href="/photo/">사진 장소</a>
+        <a class="navlink" href="/translate/">번역</a>
+        <a class="navlink" href="/planner/">날짜별 계획</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="max-w-6xl mx-auto px-4 py-6">
+    {% block content %}{% endblock %}
+  </main>
+
+  <footer class="py-8 text-center text-slate-500">
+    © {% now "Y" %} Travel Guide (Django)
+  </footer>
+
+  <div id="loader" class="hidden fixed inset-0 bg-black/30 backdrop-blur-sm z-50">
+    <div class="absolute inset-0 flex items-center justify-center">
+      <div class="bg-white/90 rounded-2xl shadow-xl p-6 flex items-center gap-3">
+        <svg class="animate-spin h-6 w-6 text-indigo-600" viewBox="0 0 24 24">
+          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"></path>
+        </svg>
+        <span class="font-medium">생성 중… 잠시만요</span>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      document.querySelectorAll('form').forEach(f => {
+        f.addEventListener('submit', () => {
+          document.getElementById('loader')?.classList.remove('hidden');
+          f.querySelectorAll('button, input[type=submit]').forEach(b => b.disabled = true);
+        });
+      });
+      const path = location.pathname.replace(/\/+$/,'/');
+      document.querySelectorAll('.navlink').forEach(a=>{
+        if(a.getAttribute('href')===path){ a.classList.add('font-semibold','underline','decoration-2'); }
+      });
+    });
+  </script>
+</body>
+</html>

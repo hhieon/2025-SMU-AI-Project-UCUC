@@ -1,0 +1,92 @@
+{% extends "travel/base.html" %}
+{% block title %}사진 장소 인식 · LLM 관광 가이드{% endblock %}
+{% block content %}
+<h1 class="text-2xl font-semibold mb-4">📸 사진 장소 (업로드 → 장소 식별)</h1>
+
+<div class="grid md:grid-cols-3 gap-6">
+  <section class="md:col-span-1">
+    <form method="post" enctype="multipart/form-data" class="bg-white rounded-2xl shadow p-5 space-y-4">
+      {% csrf_token %}
+      <div>
+        <label class="block text-sm font-medium mb-1">도시 힌트(선택)</label>
+        <input name="city_hint" class="input" placeholder="예: Seoul / Tokyo (비워도 됨)" />
+      </div>
+      <div>
+        <label class="block text-sm font-medium mb-1">국가 힌트(선택)</label>
+        <input name="country_hint" class="input" placeholder="예: South Korea / Japan (비워도 됨)" />
+      </div>
+      <div>
+        <label class="block text-sm font-medium mb-1">최대 후보 수</label>
+        <input type="number" name="topk" value="3" min="1" max="5" class="input" />
+      </div>
+      <div>
+        <label class="block text-sm font-medium mb-1">사진</label>
+        <input type="file" name="photo" accept="image/*" required class="block w-full text-sm" />
+      </div>
+      <button class="btn-primary w-full">식별하기</button>
+    </form>
+
+    {% if error %}
+      <div class="mt-4 bg-red-50 text-red-700 border border-red-200 rounded-xl p-4">
+        <div class="font-semibold">오류</div>
+        <div class="text-sm mt-1">{{ error }}</div>
+      </div>
+      {% if raw %}<pre class="codeblock mt-2">{{ raw }}</pre>{% endif %}
+    {% endif %}
+  </section>
+
+  <section class="md:col-span-2 space-y-6">
+    {% if result %}
+      <div class="bg-white rounded-2xl shadow p-5 overflow-auto">
+        <h3 class="font-semibold mb-3">후보 목록</h3>
+        <table class="min-w-full text-sm">
+          <thead class="text-left text-slate-600">
+            <tr><th class="py-2">장소</th><th>도시</th><th>국가</th><th>유형</th><th>신뢰도</th><th>근거</th></tr>
+          </thead>
+          <tbody class="divide-y">
+            {% for c in result.cands %}
+              <tr class="hover:bg-slate-50">
+                <td class="py-2">{{ c.name }}</td>
+                <td>{{ c.city }}</td>
+                <td>{{ c.country }}</td>
+                <td>{{ c.type }}</td>
+                <td>{{ c.confidence }}</td>
+                <td class="max-w-[28rem]">{{ c.reasons }}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+
+      <div class="bg-white rounded-2xl shadow p-5">
+        <h4 class="font-semibold mb-2">가장 유력: {{ result.place }}</h4>
+        {% if result.ref_url %}
+          <img src="{{ result.ref_url }}" class="w-full max-h-80 object-cover rounded-xl">
+        {% else %}
+          <div class="text-slate-500">참고 이미지 없음</div>
+        {% endif %}
+      </div>
+
+      <div class="bg-white rounded-2xl shadow p-5">
+        <h3 class="font-semibold mb-2">💬 사진 기반 Q&A</h3>
+        <form method="post" action="/photo/ask/" class="flex gap-3">
+          {% csrf_token %}
+          <input name="question" placeholder="예: 정확한 위치/입장시간/촬영 포인트 등" class="input flex-1" />
+          <button class="btn-secondary">질문하기</button>
+        </form>
+      </div>
+    {% else %}
+      <div class="bg-white rounded-2xl shadow p-10 text-center text-slate-500">
+        왼쪽에서 사진을 업로드해 장소를 식별해보세요.
+      </div>
+    {% endif %}
+
+    {% if qa_answer %}
+      <div class="bg-white rounded-2xl shadow p-5">
+        <h3 class="font-semibold mb-2">답변</h3>
+        <div class="prose max-w-none">{{ qa_answer }}</div>
+      </div>
+    {% endif %}
+  </section>
+</div>
+{% endblock %}

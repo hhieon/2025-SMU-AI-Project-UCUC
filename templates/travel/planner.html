@@ -1,0 +1,76 @@
+{% extends "travel/base.html" %}
+{% block title %}날짜별 계획 · LLM 관광 가이드{% endblock %}
+{% block content %}
+<h1 class="text-2xl font-semibold mb-4">📅 날짜별 여행 계획 자동 입력</h1>
+
+<div class="grid md:grid-cols-3 gap-6">
+  <form method="post" class="bg-white rounded-2xl shadow p-5 space-y-4 md:col-span-1">{% csrf_token %}
+    <div>
+      <label class="block text-sm font-medium mb-1">도시</label>
+      <input name="city" value="Seoul" class="input" />
+    </div>
+    <div>
+      <label class="block text-sm font-medium mb-1">시작일</label>
+      <input type="date" name="start_date" required class="input" />
+    </div>
+    <div class="grid grid-cols-2 gap-3">
+      <div>
+        <label class="block text-sm font-medium mb-1">일수</label>
+        <input type="number" name="n_days" value="4" min="1" max="21" class="input" />
+      </div>
+      <div>
+        <label class="block text-sm font-medium mb-1">강도</label>
+        <select name="intensity" class="input"><option>느긋</option><option selected>보통</option><option>빡빡</option></select>
+      </div>
+    </div>
+    <div>
+      <label class="block text-sm font-medium mb-1">요청/메모</label>
+      <textarea name="notes" rows="4" class="input" placeholder="미식/카페/야경/아이 동반 등"></textarea>
+    </div>
+    <button class="btn-primary w-full">계획 생성</button>
+  </form>
+
+  <section class="md:col-span-2 space-y-4">
+    {% if error %}
+      <div class="bg-red-50 text-red-700 border border-red-200 rounded-xl p-4">
+        <div class="font-semibold">오류</div>
+        <div class="text-sm mt-1">{{ error }}</div>
+      </div>
+      {% if raw %}<pre class="codeblock mt-2">{{ raw }}</pre>{% endif %}
+    {% endif %}
+
+    {% if result %}
+      <div class="bg-white rounded-2xl shadow p-5">
+        <h3 class="font-semibold">{{ result }}</h3>
+      </div>
+
+      {% if table %}
+        <div class="bg-white rounded-2xl shadow p-5 overflow-auto">
+          <table class="min-w-full text-sm">
+            <thead class="text-left text-slate-600"><tr><th>날짜</th><th>제목</th><th>장소</th><th>메모</th></tr></thead>
+            <tbody class="divide-y">
+              {% for r in table.itertuples %}
+                <tr class="hover:bg-slate-50">
+                  <td class="py-2">{{ r.date }}</td>
+                  <td>{{ r.title }}</td>
+                  <td>{{ r.location }}</td>
+                  <td class="max-w-[30rem]">{{ r.notes }}</td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+
+        <form method="post" action="/planner/ics/" class="bg-white rounded-2xl shadow p-5">
+          {% csrf_token %}
+          <button class="btn-secondary">📆 ICS 다운로드</button>
+        </form>
+      {% endif %}
+    {% else %}
+      <div class="bg-white rounded-2xl shadow p-10 text-center text-slate-500">
+        왼쪽에서 여행 정보를 입력하고 <b>계획 생성</b>을 눌러주세요.
+      </div>
+    {% endif %}
+  </section>
+</div>
+{% endblock %}

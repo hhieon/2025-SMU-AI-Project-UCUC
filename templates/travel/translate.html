@@ -1,0 +1,68 @@
+{% extends "travel/base.html" %}
+{% block title %}번역 · LLM 관광 가이드{% endblock %}
+
+{% block content %}
+<h1 class="text-2xl font-semibold mb-4">🈯 번역</h1>
+
+<div class="grid md:grid-cols-2 gap-6">
+  <!-- 입력 폼 -->
+  <form method="post" class="bg-white rounded-2xl shadow p-5 space-y-4">
+    {% csrf_token %}
+
+    <div class="grid grid-cols-2 gap-4">
+      <div>
+        <label class="block text-sm font-medium mb-1">원문 언어</label>
+        <select name="src" class="input">
+          <option value="자동감지" {% if request.POST.src == "자동감지" %}selected{% endif %}>자동감지</option>
+          <option value="ko" {% if request.POST.src == "ko" %}selected{% endif %}>ko</option>
+          <option value="en" {% if request.POST.src == "en" %}selected{% endif %}>en</option>
+          <option value="ja" {% if request.POST.src == "ja" %}selected{% endif %}>ja</option>
+          <option value="zh" {% if request.POST.src == "zh" %}selected{% endif %}>zh</option>
+        </select>
+      </div>
+
+      <div>
+        <label class="block text-sm font-medium mb-1">번역 언어</label>
+        <select name="tgt" class="input">
+          <option value="ko" {% if request.POST.tgt == "ko" %}selected{% endif %}>ko</option>
+          <option value="en" {% if request.POST.tgt == "en" or not request.POST.tgt %}selected{% endif %}>en</option>
+          <option value="ja" {% if request.POST.tgt == "ja" %}selected{% endif %}>ja</option>
+          <option value="zh" {% if request.POST.tgt == "zh" %}selected{% endif %}>zh</option>
+        </select>
+      </div>
+
+      <div>
+        <label class="block text-sm font-medium mb-1">말투</label>
+        <select name="tone" class="input">
+          <option value="중립" {% if request.POST.tone == "중립" or not request.POST.tone %}selected{% endif %}>중립</option>
+          <option value="격식" {% if request.POST.tone == "격식" %}selected{% endif %}>격식</option>
+          <option value="친근" {% if request.POST.tone == "친근" %}selected{% endif %}>친근</option>
+        </select>
+      </div>
+    </div>
+
+    <div>
+      <label class="block text-sm font-medium mb-1">원문</label>
+      <!-- 폭을 카드에 맞춰 100%로 강제 -->
+      <textarea
+        name="text"
+        class="input"
+        style="width:100%;max-width:100%;min-height:260px;"
+        placeholder="번역할 문장을 입력하세요"
+      >{{ request.POST.text }}</textarea>
+    </div>
+
+    <button class="btn-primary w-full">번역하기</button>
+  </form>
+
+  <!-- 결과 -->
+  <section class="bg-white rounded-2xl shadow p-5">
+    <h3 class="font-semibold mb-3">번역 결과</h3>
+    {% if result %}
+      <div class="whitespace-pre-line text-lg">{{ result }}</div>
+    {% else %}
+      <p class="text-slate-500">왼쪽에 원문을 입력하고 <b>번역하기</b>를 눌러주세요.</p>
+    {% endif %}
+  </section>
+</div>
+{% endblock %}

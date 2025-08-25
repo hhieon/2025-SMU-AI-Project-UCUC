@@ -1,0 +1,94 @@
+{% extends "travel/base.html" %}
+{% block title %}도시 가이드 · LLM 관광 가이드{% endblock %}
+{% block content %}
+<h1 class="text-2xl font-semibold mb-4">🏙️ 도시 가이드 (여행 루트 추천)</h1>
+
+<div class="grid md:grid-cols-3 gap-6">
+  <section class="md:col-span-1">
+    <form method="post" class="bg-white rounded-2xl shadow p-5 space-y-4">{% csrf_token %}
+      <div>
+        <label class="block text-sm font-medium mb-1">도시/지역명</label>
+        <input name="city" value="Seoul" class="input" />
+      </div>
+      <div>
+        <label class="block text-sm font-medium mb-1">여행 일수</label>
+        <input type="number" name="days" value="3" min="1" max="14" class="input" />
+      </div>
+      <div>
+        <label class="block text-sm font-medium mb-1">언어</label>
+        <select name="lang" class="input">
+          <option value="ko">한국어</option>
+          <option value="en">English</option>
+        </select>
+      </div>
+      <div>
+        <label class="block text-sm font-medium mb-1">관심사/제약</label>
+        <input name="prefs" placeholder="야경, 카페, 미식 등" class="input" />
+      </div>
+      <button class="btn-primary w-full">루트 추천</button>
+    </form>
+
+    {% if error %}
+      <div class="mt-4 bg-red-50 text-red-700 border border-red-200 rounded-xl p-4">
+        <div class="font-semibold">오류</div>
+        <div class="text-sm mt-1">{{ error }}</div>
+      </div>
+    {% endif %}
+  </section>
+
+  <section class="md:col-span-2 space-y-6">
+    {% if result %}
+      <div class="flex items-center justify-between">
+        <h2 class="text-xl font-semibold">{{ result.city }} 추천 일정</h2>
+        <form method="post" action="/guide/ics/">
+          {% csrf_token %}
+          <input type="hidden" name="city" value="{{ result.city }}">
+          <button class="btn-secondary">📆 ICS 다운로드</button>
+        </form>
+      </div>
+
+      <div class="space-y-5">
+        {% for day in result.days %}
+          <div class="bg-white rounded-2xl shadow overflow-hidden">
+            <div class="px-5 py-4 border-b">
+              <div class="text-sm text-slate-500">Day {{ day.day }}</div>
+              <div class="text-lg font-semibold">{{ day.theme }}</div>
+            </div>
+            <div class="divide-y">
+              {% for it in day.items %}
+                <div class="p-5 grid md:grid-cols-12 gap-4 items-start">
+                  <div class="md:col-span-2">
+                    <div class="text-sm font-medium text-indigo-700">{{ it.time_slot|default:"" }}</div>
+                    <div class="text-xs text-slate-500">{{ it.area }}</div>
+                  </div>
+                  <div class="md:col-span-7">
+                    <div class="font-semibold">{{ it.name }}</div>
+                    <div class="text-sm text-slate-700 mt-1">{{ it.why }}</div>
+                    {% if it.tips %}
+                      <div class="text-xs mt-2 text-amber-700 bg-amber-50 inline-block px-2 py-1 rounded">TIP: {{ it.tips }}</div>
+                    {% endif %}
+                  </div>
+                  <div class="md:col-span-3">
+                    {% if it.thumb %}
+                      <img src="{{ it.thumb }}" alt="{{ it.name }}" class="w-full h-24 object-cover rounded-xl">
+                    {% endif %}
+                  </div>
+                </div>
+              {% endfor %}
+            </div>
+          </div>
+        {% endfor %}
+      </div>
+
+      <details class="bg-white rounded-2xl shadow p-5">
+        <summary class="cursor-pointer font-semibold">원문 JSON 보기 (디버그용)</summary>
+        <pre class="codeblock mt-3">{{ result.pretty_json }}</pre>
+      </details>
+    {% else %}
+      <div class="bg-white rounded-2xl shadow p-10 text-center text-slate-500">
+        왼쪽 폼에 정보를 입력하고 <b>루트 추천</b>을 눌러주세요.
+      </div>
+    {% endif %}
+  </section>
+</div>
+{% endblock %}
