@@ -5,15 +5,18 @@
 
 <div class="grid md:grid-cols-3 gap-6">
   <section class="md:col-span-1">
+    <!-- ✅ 모델 제공사/세부모델을 '폼 안'으로 이동 -->
     <form method="post" class="bg-white rounded-2xl shadow p-5 space-y-4">{% csrf_token %}
       <div>
         <label class="block text-sm font-medium mb-1">도시/지역명</label>
         <input name="city" value="Seoul" class="input" />
       </div>
+
       <div>
         <label class="block text-sm font-medium mb-1">여행 일수</label>
         <input type="number" name="days" value="3" min="1" max="14" class="input" />
       </div>
+
       <div>
         <label class="block text-sm font-medium mb-1">언어</label>
         <select name="lang" class="input">
@@ -21,10 +24,28 @@
           <option value="en">English</option>
         </select>
       </div>
+
       <div>
         <label class="block text-sm font-medium mb-1">관심사/제약</label>
         <input name="prefs" placeholder="야경, 카페, 미식 등" class="input" />
       </div>
+
+      <!-- 🔽 모델 제공사 선택 -->
+      <div>
+        <label class="block text-sm font-medium mb-1">모델 제공사</label>
+        <select name="provider" id="provider" class="input">
+          <option value="openai" {% if provider == "openai" or not provider %}selected{% endif %}>OpenAI</option>
+          <option value="gemini" {% if provider == "gemini" %}selected{% endif %}>Google Gemini</option>
+        </select>
+      </div>
+
+      <!-- 🔽 세부 모델 선택 (제공사에 따라 자동 채움) -->
+      <div>
+        <label class="block text-sm font-medium mb-1">세부 모델</label>
+        <select name="model" id="model" class="input"></select>
+        <small class="muted">계정/시점에 따라 일부 모델은 미지원일 수 있어요.</small>
+      </div>
+
       <button class="btn-primary w-full">루트 추천</button>
     </form>
 
@@ -37,6 +58,28 @@
   </section>
 
   <section class="md:col-span-2 space-y-6">
+
+    {# ✅ 날씨 카드 (POST 후 보여줌) #}
+    {% if weather %}
+      <div class="bg-white rounded-2xl shadow p-4 flex items-center gap-4">
+        <img src="{{ weather.icon_url }}" alt="{{ weather.desc }}" class="w-12 h-12">
+        <div>
+          <div class="font-semibold">{{ weather.name }} 현재 날씨</div>
+          <div class="text-sm text-slate-600">
+            {{ weather.desc }} · {{ weather.temp|floatformat:0 }}°C
+            (체감 {{ weather.feels_like|floatformat:0 }}°)
+          </div>
+        </div>
+        <div class="ml-auto text-sm text-slate-500">
+          습도 {{ weather.humidity }}% · 바람 {{ weather.wind }} m/s
+        </div>
+      </div>
+    {% elif weather_error %}
+      <div class="bg-amber-50 text-amber-800 border border-amber-200 rounded-xl p-3 text-sm">
+        날씨 정보를 가져오지 못했습니다. {{ weather_error }}
+      </div>
+    {% endif %}
+
     {% if result %}
       <div class="flex items-center justify-between">
         <h2 class="text-xl font-semibold">{{ result.city }} 추천 일정</h2>
@@ -91,4 +134,43 @@
     {% endif %}
   </section>
 </div>
+
+<!-- ✅ 모델 목록 채우는 스크립트: 결과 유무와 상관없이 항상 실행 -->
+<script>
+  // 서버에서 포스트백된 선택값 유지
+  const SELECTED = {
+    provider: "{{ provider|default:'openai' }}",
+    model: "{{ model|default:'' }}"
+  };
+
+  // 프론트 카탈로그 (백엔드와 동일하게 유지)
+  const MODEL_CATALOG = {
+    openai: ["gpt-4o-mini","gpt-4.1-mini","gpt-4.1","gpt-4o","gpt-5"],
+    gemini: ["gemini-1.5-flash","gemini-1.5-pro","gemini-1.5-flash-8b"]
+  };
+
+  function fillModels() {
+    const prov = document.getElementById('provider');
+    const modelSel = document.getElementById('model');
+    if (!prov || !modelSel) return;  // 폼이 렌더링되지 않은 경우 대비
+
+    const list = MODEL_CATALOG[prov.value] || [];
+    modelSel.innerHTML = "";
+    list.forEach(m => {
+      const opt = document.createElement('option');
+      opt.value = m; opt.textContent = m;
+      if (SELECTED.provider === prov.value && SELECTED.model === m) opt.selected = true;
+      modelSel.appendChild(opt);
+    });
+    if (!modelSel.value && list.length) modelSel.value = list[0];
+  }
+
+  document.addEventListener('DOMContentLoaded', () => {
+    const prov = document.getElementById('provider');
+    if (prov) {
+      prov.addEventListener('change', () => { SELECTED.model = ""; fillModels(); });
+      fillModels();
+    }
+  });
+</script>
 {% endblock %}

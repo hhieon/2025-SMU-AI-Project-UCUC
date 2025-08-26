@@ -9,4 +9,5 @@ urlpatterns = [
     path("translate/", views.translate_view, name="translate"),
     path("planner/", views.planner_view, name="planner"),
     path("planner/ics/", views.planner_ics_download, name="planner_ics"),
+    path('planner/save/', views.planner_save_api, name='planner_save_api'),
 ]

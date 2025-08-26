@@ -1,18 +1,28 @@
 {% extends "travel/base.html" %}
 {% block title %}Planner{% endblock %}
 {% block content %}
+
+<!-- FullCalendar -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/index.global.min.css">
+<script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/index.global.min.js"></script>
+
 <h1 class="text-2xl font-semibold mb-4">📅 날짜별 여행 계획 자동 입력</h1>
 
-<div class="grid md:grid-cols-3 gap-6">
-  <form method="post" class="bg-white rounded-2xl shadow p-5 space-y-4 md:col-span-1">{% csrf_token %}
+<!-- ✅ 3열: 360px / 1fr / 560px -->
+<div class="grid gap-6 lg:grid-cols-[360px_minmax(0,1fr)_560px]">
+
+  <!-- 좌측: 입력 폼 -->
+  <form method="post" class="bg-white rounded-2xl shadow p-5 space-y-4">{% csrf_token %}
     <div>
       <label class="block text-sm font-medium mb-1">도시</label>
       <input name="city" value="Seoul" class="input" />
     </div>
+
     <div>
       <label class="block text-sm font-medium mb-1">시작일</label>
       <input type="date" name="start_date" required class="input" />
     </div>
+
     <div class="grid grid-cols-2 gap-3">
       <div>
         <label class="block text-sm font-medium mb-1">일수</label>
@@ -20,17 +30,58 @@
       </div>
       <div>
         <label class="block text-sm font-medium mb-1">강도</label>
-        <select name="intensity" class="input"><option>느긋</option><option selected>보통</option><option>빡빡</option></select>
+        <select name="intensity" class="input">
+          <option>느긋</option><option selected>보통</option><option>빡빡</option>
+        </select>
       </div>
     </div>
+
     <div>
       <label class="block text-sm font-medium mb-1">요청/메모</label>
       <textarea name="notes" rows="4" class="input" placeholder="미식/카페/야경/아이 동반 등"></textarea>
     </div>
+
+    <!-- 모델 선택 -->
+    <div>
+      <label class="block text-sm font-medium mb-1">모델 제공사</label>
+      <select id="provider" name="provider" class="input">
+        <option value="openai" {% if provider == "openai" or not provider %}selected{% endif %}>OpenAI</option>
+        <option value="gemini" {% if provider == "gemini" %}selected{% endif %}>Google Gemini</option>
+      </select>
+    </div>
+    <div>
+      <label class="block text-sm font-medium mb-1">세부 모델</label>
+      <select id="model" name="model" class="input"></select>
+      <small class="muted">계정/시점에 따라 일부 모델은 미지원일 수 있어요.</small>
+    </div>
+
     <button class="btn-primary w-full">계획 생성</button>
   </form>
 
-  <section class="md:col-span-2 space-y-4">
+  <!-- 가운데: 결과 패널(살짝 좁힘) -->
+  <section class="space-y-4 max-w-[780px]">
+
+    {# ✅ 날씨 카드 (POST 후 보여줌) #}
+    {% if weather %}
+      <div class="bg-white rounded-2xl shadow p-4 flex items-center gap-4">
+        <img src="{{ weather.icon_url }}" alt="{{ weather.desc }}" class="w-12 h-12">
+        <div>
+          <div class="font-semibold">{{ weather.name }} 오늘 날씨</div>
+          <div class="text-sm text-slate-600">
+            {{ weather.desc }} · {{ weather.temp|floatformat:0 }}°C
+            (체감 {{ weather.feels_like|floatformat:0 }}°)
+          </div>
+        </div>
+        <div class="ml-auto text-sm text-slate-500">
+          습도 {{ weather.humidity }}% · 바람 {{ weather.wind }} m/s
+        </div>
+      </div>
+    {% elif weather_error %}
+      <div class="bg-amber-50 text-amber-800 border border-amber-200 rounded-xl p-3 text-sm">
+        날씨 정보를 가져오지 못했습니다. {{ weather_error }}
+      </div>
+    {% endif %}
+
     {% if error %}
       <div class="bg-red-50 text-red-700 border border-red-200 rounded-xl p-4">
         <div class="font-semibold">오류</div>
@@ -44,12 +95,14 @@
         <h3 class="font-semibold">{{ result }}</h3>
       </div>
 
-      {% if table %}
+      {% if table_rows %}
         <div class="bg-white rounded-2xl shadow p-5 overflow-auto">
           <table class="min-w-full text-sm">
-            <thead class="text-left text-slate-600"><tr><th>날짜</th><th>제목</th><th>장소</th><th>메모</th></tr></thead>
+            <thead class="text-left text-slate-600">
+              <tr><th>날짜</th><th>제목</th><th>장소</th><th>메모</th></tr>
+            </thead>
             <tbody class="divide-y">
-              {% for r in table.itertuples %}
+              {% for r in table_rows %}
                 <tr class="hover:bg-slate-50">
                   <td class="py-2">{{ r.date }}</td>
                   <td>{{ r.title }}</td>
@@ -72,5 +125,130 @@
       </div>
     {% endif %}
   </section>
+
+  <!-- 오른쪽: 달력 (넓게 + 고정 높이) -->
+  <aside class="space-y-3">
+    <div id="planner-cal" class="bg-white rounded-2xl shadow w-full" style="height:760px"></div>
+
+    <div class="bg-white rounded-2xl shadow p-5">
+      <button id="save-cal" type="button" class="btn-secondary w-full">💾 달력 내용 저장</button>
+      <p class="text-xs text-slate-500 mt-2">드래그/리사이즈 시 자동 저장됩니다. 수동 저장도 가능해요.</p>
+    </div>
+  </aside>
 </div>
+
+<!-- 스크립트(모델 셀렉트 + 캘린더 초기화) -->
+<script>
+  /* 모델 셀렉트 */
+  const SELECTED = { provider: "{{ provider|default:'openai' }}", model: "{{ model|default:'' }}" };
+  const MODEL_CATALOG = {
+    openai: ["gpt-4o-mini","gpt-4.1-mini","gpt-4.1","gpt-4o","gpt-5"],
+    gemini: ["gemini-1.5-flash","gemini-1.5-pro","gemini-1.5-flash-8b"]
+  };
+  function fillModels(){
+    const prov = document.getElementById('provider').value;
+    const s = document.getElementById('model');
+    const list = MODEL_CATALOG[prov] || [];
+    s.innerHTML = "";
+    list.forEach(m=>{
+      const o=document.createElement('option'); o.value=m; o.textContent=m;
+      if(SELECTED.provider===prov && SELECTED.model===m) o.selected=true;
+      s.appendChild(o);
+    });
+    if(!s.value && list.length) s.value=list[0];
+  }
+  document.getElementById('provider')?.addEventListener('change', ()=>{ SELECTED.model=""; fillModels(); });
+  fillModels();
+
+  /* 서버 생성 결과 → 초기 달력 이벤트 */
+  window.initialEvents = [
+    {% if table_rows %}
+      {% for r in table_rows %}
+      { title:"{{ r.title|escapejs }}",
+        start:"{{ r.start_dt|date:'c' }}",
+        end:"{{ r.end_dt|date:'c' }}",
+        extendedProps:{ location:"{{ r.location|escapejs }}", notes:"{{ r.notes|escapejs }}" } }
+      {% if not forloop.last %},{% endif %}
+      {% endfor %}
+    {% endif %}
+  ];
+
+  document.addEventListener('DOMContentLoaded', ()=>{
+    const el = document.getElementById('planner-cal');
+    if(!el) return;
+
+    const initial = "{{ cal_start|default:'' }}";
+    const initialDate = initial || new Date().toISOString().slice(0,10);
+
+    // 높이 고정(무한 리사이즈 방지)
+    el.style.height = '760px';
+
+    const cal = new FullCalendar.Calendar(el, {
+      initialDate,
+      initialView: 'timeGridWeek',
+      headerToolbar: { left:'prev,next today', center:'title', right:'dayGridMonth,timeGridWeek,timeGridDay' },
+      selectable: true,
+      selectMirror: true,
+
+      /* ✅ 드래그 & 리사이즈 */
+      editable: true,
+      eventStartEditable: true,
+      eventDurationEditable: true,
+      eventResizableFromStart: true,
+
+      height: 760,
+      expandRows: true,
+      slotMinTime: '06:00:00',
+      slotMaxTime: '23:00:00',
+      events: window.initialEvents || [],
+
+      select(info){
+        const t = prompt('일정 제목을 입력하세요');
+        if(t){ cal.addEvent({ title:t, start:info.startStr, end:info.endStr }); saveToServer(); }
+        cal.unselect();
+      },
+      eventClick(info){
+        const t = prompt('제목 수정(빈칸→삭제)', info.event.title);
+        if(t===null) return;
+        if(t.trim()===''){ info.event.remove(); saveToServer(); }
+        else{ info.event.setProp('title', t.trim()); saveToServer(); }
+      },
+      eventDrop(){ saveToServer(); },      // ✅ 드래그로 날짜/시간 이동
+      eventResize(){ saveToServer(); }     // ✅ 길이 리사이즈
+    });
+    cal.render();
+
+    // 디바운스된 resize만 사용
+    const debounce = (fn, ms=150)=>{ let t; return (...a)=>{ clearTimeout(t); t=setTimeout(()=>fn(...a), ms); } };
+    window.addEventListener('resize', debounce(()=> cal.updateSize(), 150));
+
+    // 공통 저장 함수
+    function csrf(){
+      const el = document.querySelector('input[name=csrfmiddlewaretoken]');
+      return el ? el.value : '';
+    }
+    async function saveToServer(){
+      const payload = {
+        events: cal.getEvents().map(e=>({
+          title: e.title,
+          start: e.start ? e.start.toISOString().slice(0,19) : null,
+          end:   e.end   ? e.end.toISOString().slice(0,19)   : (e.start ? e.start.toISOString().slice(0,19) : null),
+          location: e.extendedProps?.location || '',
+          notes:    e.extendedProps?.notes || ''
+        }))
+      };
+      try{
+        const r = await fetch('/planner/save/', {
+          method:'POST',
+          headers:{ 'Content-Type':'application/json', 'X-CSRFToken': csrf() },
+          body: JSON.stringify(payload)
+        });
+        await r.json(); // {ok:true,count:n}
+        // console.log('saved', d);
+      }catch(err){ console.error('달력 저장 실패:', err); }
+    }
+
+    document.getElementById('save-cal')?.addEventListener('click', saveToServer);
+  });
+</script>
 {% endblock %}

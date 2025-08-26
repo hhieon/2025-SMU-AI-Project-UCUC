@@ -19,6 +19,22 @@
         <label class="block text-sm font-medium mb-1">최대 후보 수</label>
         <input type="number" name="topk" value="3" min="1" max="5" class="input" />
       </div>
+
+      <!-- 🔒 현재 멀티모달은 OpenAI Vision 고정 (안내용 비활성) -->
+      <div>
+        <label class="block text-sm font-medium mb-1">모델 제공사</label>
+        <select class="input" disabled>
+          <option selected>OpenAI (Vision)</option>
+        </select>
+        <small class="muted">사진 인식은 현재 멀티모달 전용 엔진(OpenAI Vision)으로 동작합니다.</small>
+      </div>
+      <div>
+        <label class="block text-sm font-medium mb-1">세부 모델</label>
+        <select class="input" disabled>
+          <option selected>gpt-4o / gpt-4o-mini (vision)</option>
+        </select>
+      </div>
+
       <div>
         <label class="block text-sm font-medium mb-1">사진</label>
         <input type="file" name="photo" accept="image/*" required class="block w-full text-sm" />

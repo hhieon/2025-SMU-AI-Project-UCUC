@@ -1,12 +1,121 @@
 import re, json, time, base64, random, imghdr, requests, pandas as pd
 from datetime import datetime
 from typing import Tuple, List, Dict, Any
+import json as _json
+import urllib.parse as _urlparse
+import urllib.request as _urlreq
+import requests
 
 # =========================================================
 # 🔑 로컬 전용 OpenAI 키 (절대 공개 저장소 업로드 금지)
 #  - 너가 전에 준 키를 그대로 하드코딩 (원하면 바꿔도 됨)
 HARDCODE_OPENAI_KEY = "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"
 # =========================================================
+# Open-Meteo 지오코딩 → 위경도 찾기
+def _geocode_city_openmeteo(name: str, lang: str = "en"):
+    url = "https://geocoding-api.open-meteo.com/v1/search"
+    r = requests.get(url, params={"name": name, "count": 1, "language": lang, "format": "json"}, timeout=10)
+    r.raise_for_status()
+    data = r.json() or {}
+    results = data.get("results") or []
+    if not results:
+        raise ValueError("no geocoding result")
+    return results[0]  # {latitude, longitude, name, country_code, admin1, timezone ...}
+
+# WMO 코드 → 설명(ko/en)
+_WMO_TEXT_KO = {
+    0:"맑음", 1:"대체로 맑음", 2:"구름 많음", 3:"흐림",
+    45:"안개", 48:"상고대 안개",
+    51:"이슬비(약)", 53:"이슬비(보통)", 55:"이슬비(강)",
+    56:"얼어붙는 이슬비(약)", 57:"얼어붙는 이슬비(강)",
+    61:"비(약)", 63:"비(보통)", 65:"비(강)",
+    66:"얼어붙는 비(약)", 67:"얼어붙는 비(강)",
+    71:"눈(약)", 73:"눈(보통)", 75:"눈(강)", 77:"싸락눈",
+    80:"소나기(약)", 81:"소나기(보통)", 82:"소나기(강)",
+    85:"소낙눈(약)", 86:"소낙눈(강)",
+    95:"뇌우", 96:"우박을 동반한 뇌우(약/보통)", 99:"우박을 동반한 뇌우(강)"
+}
+_WMO_TEXT_EN = {
+    0:"Clear", 1:"Mainly clear", 2:"Partly cloudy", 3:"Overcast",
+    45:"Fog", 48:"Depositing rime fog",
+    51:"Drizzle (light)", 53:"Drizzle (moderate)", 55:"Drizzle (dense)",
+    56:"Freezing drizzle (light)", 57:"Freezing drizzle (dense)",
+    61:"Rain (slight)", 63:"Rain (moderate)", 65:"Rain (heavy)",
+    66:"Freezing rain (light)", 67:"Freezing rain (heavy)",
+    71:"Snow fall (slight)", 73:"Snow fall (moderate)", 75:"Snow fall (heavy)", 77:"Snow grains",
+    80:"Rain showers (slight)", 81:"Rain showers (moderate)", 82:"Rain showers (violent)",
+    85:"Snow showers (slight)", 86:"Snow showers (heavy)",
+    95:"Thunderstorm", 96:"Thunderstorm with hail (slight/moderate)", 99:"Thunderstorm with hail (heavy)"
+}
+def _wmo_desc(code: int, lang: str):
+    d = _WMO_TEXT_KO if (lang or "").lower().startswith(("ko","kr")) else _WMO_TEXT_EN
+    return d.get(int(code), str(code))
+
+# WMO → OWM 아이콘 코드 매핑(아이콘 이미지는 OWM CDN 재활용)
+def _wmo_to_owm_icon(code: int, is_day: bool) -> str:
+    dn = "d" if is_day else "n"
+    c = int(code)
+    if c == 0: return f"01{dn}"
+    if c == 1: return f"02{dn}"
+    if c == 2: return f"03{dn}"
+    if c == 3: return f"04{dn}"
+    if c in (45,48): return f"50{dn}"
+    if c in (51,53,55,80,81,82): return f"09{dn}"   # drizzle / showers
+    if c in (61,63,65): return f"10{dn}"            # rain
+    if c in (66,67,71,73,75,77,85,86): return f"13{dn}"  # snow/ freezing
+    if c in (95,96,99): return f"11{dn}"            # thunder
+    return f"04{dn}"
+
+def get_current_weather(city: str, lang: str = "kr", units: str = "metric"):
+    """
+    Open-Meteo 기반 현재 날씨(무료/키불필요).
+    반환: (info_dict, None) 또는 (None, "error")
+    info_dict 키는 기존과 최대한 호환:
+      name, country, desc, temp, feels_like, temp_min, temp_max, humidity, wind, icon, icon_url
+    """
+    try:
+        # 1) 지오코딩
+        g = _geocode_city_openmeteo(city, lang="ko" if (lang or "").startswith(("ko","kr")) else "en")
+        lat, lon = g["latitude"], g["longitude"]
+        display_name = g.get("name") or city
+        if g.get("admin1"):  # 시/도 정보가 있으면 붙여주기
+            display_name = f"{display_name}, {g['admin1']}"
+
+        # 2) 현재 날씨
+        url = "https://api.open-meteo.com/v1/forecast"
+        params = {
+            "latitude": lat,
+            "longitude": lon,
+            "current": "temperature_2m,apparent_temperature,weather_code,relative_humidity_2m,wind_speed_10m,is_day",
+            "timezone": "auto",
+        }
+        r = requests.get(url, params=params, timeout=10)
+        r.raise_for_status()
+        data = r.json() or {}
+        cur = (data.get("current") or {})
+        if not cur:
+            return None, "no current weather"
+
+        code = int(cur.get("weather_code", 0))
+        is_day = bool(cur.get("is_day", 1))
+        icon = _wmo_to_owm_icon(code, is_day)
+
+        info = {
+            "name": display_name,
+            "country": g.get("country_code", ""),
+            "desc": _wmo_desc(code, lang),
+            "temp": cur.get("temperature_2m"),
+            "feels_like": cur.get("apparent_temperature"),
+            "temp_min": None,   # Open-Meteo 현재값에는 일 최저/최고가 없음
+            "temp_max": None,
+            "humidity": cur.get("relative_humidity_2m"),
+            "wind": cur.get("wind_speed_10m"),
+            "icon": icon,
+            "icon_url": f"https://openweathermap.org/img/wn/{icon}@2x.png",  # 무료 아이콘 CDN 재활용
+        }
+        return info, None
+    except Exception as e:
+        return None, str(e)
 
 # ---------- OpenAI ----------
 def get_openai_client():

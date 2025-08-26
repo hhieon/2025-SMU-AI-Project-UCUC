@@ -1,30 +1,74 @@
 {% load static %}
 <!doctype html>
-<html lang="ko">
+<html lang="ko" data-theme="">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>{% block title %}Travel Companion{% endblock %}</title>
   <script src="https://cdn.tailwindcss.com"></script>
-  <link rel="stylesheet" href="{% static 'travel/style.css' %}">
+  <link rel="stylesheet" href="{% static 'css/style.css' %}">
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='64' height='64'%3E%3Ctext y='.9em' font-size='50'%3E🧭%3C/text%3E%3C/svg%3E">
 </head>
 <body class="bg-slate-50 text-slate-900">
-  <header class="bg-gradient-to-r from-sky-600 to-indigo-600 text-white">
-    <div class="max-w-6xl mx-auto px-4 py-4 flex items-center justify-between">
+
+  <!-- 헤더: [햄버거] [브랜드] [오른쪽: 다크 토글] -->
+  <header class="tg-header bg-gradient-to-r from-sky-600 to-indigo-600 text-white sticky top-0 z-50">
+    <!-- 🔧 폭 확장: max-w-[1400px] -->
+    <div class="max-w-[1400px] mx-auto px-4 py-4 flex items-center gap-3">
+      <!-- 메뉴 버튼 -->
+      <button id="drawer-toggle"
+              class="inline-flex items-center justify-center w-10 h-10 rounded-lg hover:bg-white/10 focus:outline-none focus:ring-2 focus:ring-white/60"
+              aria-controls="app-sidebar" aria-expanded="false" aria-label="메뉴 열기">
+        <svg viewBox="0 0 24 24" class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16"/>
+        </svg>
+      </button>
+
+      <!-- 브랜드 -->
       <a href="/guide/" class="flex items-center gap-2 font-semibold text-lg">
         <span class="text-2xl">🧭</span> <span>Travel Companion</span>
       </a>
-      <nav class="flex items-center gap-4">
-        <a class="navlink" href="/guide/">Guide</a>
-        <a class="navlink" href="/photo/">Photo</a>
-        <a class="navlink" href="/translate/">Translate</a>
-        <a class="navlink" href="/planner/">Planner</a>
-      </nav>
+
+      <!-- 오른쪽: 다크모드 토글 -->
+      <div class="ml-auto flex items-center">
+        <button id="theme-toggle"
+                class="inline-flex items-center justify-center w-10 h-10 rounded-lg bg-white/15 hover:bg-white/25 focus:outline-none focus:ring-2 focus:ring-white/60"
+                aria-label="다크 모드 토글">🌙</button>
+      </div>
     </div>
   </header>
 
-  <main class="max-w-6xl mx-auto px-4 py-6">
+  <!-- 백드롭 -->
+  <div id="drawer-backdrop" class="fixed inset-0 bg-black/40 backdrop-blur-[1px] hidden z-40"></div>
+
+  <!-- 좌측 사이드바 -->
+  <aside id="app-sidebar"
+         class="fixed left-0 top-0 h-screen w-72 max-w-[85vw] bg-white shadow-2xl z-50 transform -translate-x-full transition-transform duration-200 flex flex-col"
+         aria-hidden="true" role="dialog" aria-label="내비게이션" data-state="closed">
+    <div class="px-4 py-3 border-b flex items-center gap-2">
+      <strong class="text-slate-800">MENU</strong>
+      <button id="drawer-close"
+              class="ml-auto inline-flex items-center justify-center w-8 h-8 rounded-lg hover:bg-slate-100"
+              aria-label="메뉴 닫기">
+        <svg viewBox="0 0 24 24" class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+        </svg>
+      </button>
+    </div>
+
+    <nav class="p-3">
+      <ul class="space-y-2">
+        <li><a href="/guide/"     class="drawer-link block px-3 py-2 rounded-lg text-slate-700 hover:bg-slate-100">Guide</a></li>
+        <li><a href="/photo/"     class="drawer-link block px-3 py-2 rounded-lg text-slate-700 hover:bg-slate-100">Photo</a></li>
+        <li><a href="/translate/" class="drawer-link block px-3 py-2 rounded-lg text-slate-700 hover:bg-slate-100">Translate</a></li>
+        <li><a href="/planner/"   class="drawer-link block px-3 py-2 rounded-lg text-slate-700 hover:bg-slate-100">Planner</a></li>
+      </ul>
+    </nav>
+  </aside>
+
+  <!-- 본문 -->
+  <!-- 🔧 폭 확장: max-w-[1400px] -->
+  <main class="max-w-[1400px] mx-auto px-4 py-6">
     {% block content %}{% endblock %}
   </main>
 
@@ -32,30 +76,111 @@
     © {% now "Y" %} Travel Companion_UCUC
   </footer>
 
-  <div id="loader" class="hidden fixed inset-0 bg-black/30 backdrop-blur-sm z-50">
+  <!-- 로더 -->
+  <div id="loader"
+       class="hidden fixed inset-0 z-50 bg-black/50 backdrop-blur-sm"
+       aria-live="polite" aria-label="Loading">
     <div class="absolute inset-0 flex items-center justify-center">
-      <div class="bg-white/90 rounded-2xl shadow-xl p-6 flex items-center gap-3">
-        <svg class="animate-spin h-6 w-6 text-indigo-600" viewBox="0 0 24 24">
+      <div class="loader-card rounded-2xl shadow-2xl px-6 py-4 flex items-center gap-3">
+        <svg class="animate-spin h-6 w-6 text-indigo-400" viewBox="0 0 24 24" aria-hidden="true">
           <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
           <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"></path>
         </svg>
-        <span class="font-medium">Loading...</span>
+        <span class="font-semibold tracking-wide">Loading...</span>
       </div>
     </div>
   </div>
 
+  <!-- 스크립트 -->
   <script>
     document.addEventListener('DOMContentLoaded', () => {
+      /* 1) 폼 로더 */
       document.querySelectorAll('form').forEach(f => {
         f.addEventListener('submit', () => {
           document.getElementById('loader')?.classList.remove('hidden');
           f.querySelectorAll('button, input[type=submit]').forEach(b => b.disabled = true);
         });
       });
-      const path = location.pathname.replace(/\/+$/,'/');
-      document.querySelectorAll('.navlink').forEach(a=>{
-        if(a.getAttribute('href')===path){ a.classList.add('font-semibold','underline','decoration-2'); }
+
+      /* 2) 현재 경로 하이라이트 */
+      const norm = p => (p || '/').replace(/\/+$/, '/');
+      const path = norm(location.pathname);
+      document.querySelectorAll('.drawer-link').forEach(a => {
+        if (norm(a.getAttribute('href')) === path) {
+          a.classList.add('bg-indigo-50','text-indigo-700','font-semibold','ring-1','ring-indigo-200');
+          a.setAttribute('aria-current', 'page');
+        }
       });
+
+      /* 3) 사이드바 토글 */
+      const drawer   = document.getElementById('app-sidebar');
+      const backdrop = document.getElementById('drawer-backdrop');
+      const openBtn  = document.getElementById('drawer-toggle');
+      const closeBtn = document.getElementById('drawer-close');
+      let lastFocused = null;
+
+      function openDrawer() {
+        lastFocused = document.activeElement;
+        drawer.classList.remove('-translate-x-full');
+        drawer.dataset.state = 'open';
+        backdrop.classList.remove('hidden');
+        openBtn.setAttribute('aria-expanded', 'true');
+        drawer.setAttribute('aria-hidden', 'false');
+        document.body.style.overflow = 'hidden';
+        setTimeout(() => drawer.querySelector('.drawer-link')?.focus(), 0);
+        document.addEventListener('keydown', onKeyDown);
+      }
+      function closeDrawer() {
+        drawer.classList.add('-translate-x-full');
+        drawer.dataset.state = 'closed';
+        backdrop.classList.add('hidden');
+        openBtn.setAttribute('aria-expanded', 'false');
+        drawer.setAttribute('aria-hidden', 'true');
+        document.body.style.overflow = '';
+        document.removeEventListener('keydown', onKeyDown);
+        lastFocused?.focus();
+      }
+      function onKeyDown(e) { if (e.key === 'Escape') { e.preventDefault(); closeDrawer(); } }
+      openBtn?.addEventListener('click', () => drawer.dataset.state === 'open' ? closeDrawer() : openDrawer());
+      closeBtn?.addEventListener('click', closeDrawer);
+      backdrop?.addEventListener('click', closeDrawer);
+      drawer.querySelectorAll('a').forEach(a => a.addEventListener('click', closeDrawer));
+
+      /* 4) 다크모드: OS 자동 + 수동 토글(저장) */
+      const root = document.documentElement;
+      const key  = 'tc_theme';     // 'dark' | 'light' | null(자동)
+      const btn  = document.getElementById('theme-toggle');
+
+      function applyTheme() {
+        const saved = localStorage.getItem(key);
+        if (saved === 'dark') root.setAttribute('data-theme','dark');
+        else if (saved === 'light') root.removeAttribute('data-theme');
+        else {
+          if (window.matchMedia('(prefers-color-scheme: dark)').matches) root.setAttribute('data-theme','dark');
+          else root.removeAttribute('data-theme');
+        }
+        updateIcon();
+      }
+      function updateIcon() {
+        const isDark = root.getAttribute('data-theme') === 'dark';
+        btn.textContent = isDark ? '☀️' : '🌙';
+        btn.setAttribute('aria-label', isDark ? '라이트 모드' : '다크 모드');
+      }
+      btn?.addEventListener('click', () => {
+        const isDark = root.getAttribute('data-theme') === 'dark';
+        if (isDark) { localStorage.setItem(key,'light'); root.removeAttribute('data-theme'); }
+        else { localStorage.setItem(key,'dark'); root.setAttribute('data-theme','dark'); }
+        updateIcon();
+      });
+      // OS 테마 변경 시(수동 설정 없을 때만)
+      window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', e => {
+        if (!localStorage.getItem(key)) {
+          if (e.matches) root.setAttribute('data-theme','dark');
+          else root.removeAttribute('data-theme');
+          updateIcon();
+        }
+      });
+      applyTheme();
     });
   </script>
 </body>

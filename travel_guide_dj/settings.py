@@ -45,6 +45,7 @@ USE_I18N = True
 USE_TZ = False  # 로컬 시간대 그대로 사용(ICS 편의)
 
 STATIC_URL = "/static/"
-STATICFILES_DIRS = [BASE_DIR / "travel" / "static"]
+STATICFILES_DIRS = [
+    BASE_DIR / "static",]
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"

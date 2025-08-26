@@ -43,13 +43,26 @@
 
     <div>
       <label class="block text-sm font-medium mb-1">원문</label>
-      <!-- 폭을 카드에 맞춰 100%로 강제 -->
       <textarea
         name="text"
         class="input"
         style="width:100%;max-width:100%;min-height:260px;"
         placeholder="번역할 문장을 입력하세요"
       >{{ request.POST.text }}</textarea>
+    </div>
+
+    <!-- 🔽 모델 선택 -->
+    <div>
+      <label class="block text-sm font-medium mb-1">모델 제공사</label>
+      <select name="provider" id="provider" class="input">
+        <option value="openai" {% if provider == "openai" or not provider %}selected{% endif %}>OpenAI</option>
+        <option value="gemini" {% if provider == "gemini" %}selected{% endif %}>Google Gemini</option>
+      </select>
+    </div>
+    <div>
+      <label class="block text-sm font-medium mb-1">세부 모델</label>
+      <select name="model" id="model" class="input"></select>
+      <small class="muted">계정/시점에 따라 일부 모델은 미지원일 수 있어요.</small>
     </div>
 
     <button class="btn-primary w-full">번역하기</button>
@@ -65,4 +78,37 @@
     {% endif %}
   </section>
 </div>
+
+<!-- 모델 목록 스크립트 -->
+<script>
+  const SELECTED = {
+    provider: "{{ provider|default:'openai' }}",
+    model: "{{ model|default:'' }}"
+  };
+  const MODEL_CATALOG = {
+    openai: ["gpt-4o-mini","gpt-4.1-mini","gpt-4.1","gpt-4o","gpt-5"],
+    gemini: ["gemini-1.5-flash","gemini-1.5-pro","gemini-1.5-flash-8b"]
+  };
+  function fillModels() {
+    const prov = document.getElementById('provider');
+    const modelSel = document.getElementById('model');
+    if (!prov || !modelSel) return;
+    const list = MODEL_CATALOG[prov.value] || [];
+    modelSel.innerHTML = "";
+    list.forEach(m => {
+      const opt = document.createElement('option');
+      opt.value = m; opt.textContent = m;
+      if (SELECTED.provider === prov.value && SELECTED.model === m) opt.selected = true;
+      modelSel.appendChild(opt);
+    });
+    if (!modelSel.value && list.length) modelSel.value = list[0];
+  }
+  document.addEventListener('DOMContentLoaded', () => {
+    const prov = document.getElementById('provider');
+    if (prov) {
+      prov.addEventListener('change', () => { SELECTED.model = ""; fillModels(); });
+      fillModels();
+    }
+  });
+</script>
 {% endblock %}
