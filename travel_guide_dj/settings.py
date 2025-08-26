@@ -3,9 +3,9 @@ from pathlib import Path
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 SECRET_KEY = 'django-insecure-3kqt&r#11(ku)ead6ze5i9p@ezk2c2=#5gocft7ry(hbi7b5ht'  # 개발용
-
-DEBUG = True
-ALLOWED_HOSTS = ["*"]
+DEBUG = False
+ALLOWED_HOSTS = ["travelcompanion.my", "www.travelcompanion.my"]
+CSRF_TRUSTED_ORIGINS = ["https://travelcompanion.my", "https://www.travelcompanion.my"]
 
 INSTALLED_APPS = [
     "django.contrib.admin", "django.contrib.auth", "django.contrib.contenttypes",
