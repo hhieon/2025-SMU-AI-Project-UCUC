@@ -4,8 +4,18 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 
 SECRET_KEY = 'django-insecure-3kqt&r#11(ku)ead6ze5i9p@ezk2c2=#5gocft7ry(hbi7b5ht'  # 개발용
 DEBUG = False
-ALLOWED_HOSTS = ["travelcompanion.my", "www.travelcompanion.my"]
-CSRF_TRUSTED_ORIGINS = ["https://travelcompanion.my", "https://www.travelcompanion.my"]
+ALLOWED_HOSTS = [
+    "127.0.0.1", "localhost",
+    "34.64.226.100",
+    "travelcompanion.my", "www.travelcompanion.my", *
+]
+
+# 폼 POST/쿠키용(나중에 CSRF 403 막기)
+CSRF_TRUSTED_ORIGINS = [
+    "http://34.64.226.100", "https://34.64.226.100",
+    "http://travelcompanion.my", "https://travelcompanion.my",
+    "http://www.travelcompanion.my","https://www.travelcompanion.my",
+]
 
 INSTALLED_APPS = [
     "django.contrib.admin", "django.contrib.auth", "django.contrib.contenttypes",
@@ -47,5 +57,5 @@ USE_TZ = False  # 로컬 시간대 그대로 사용(ICS 편의)
 STATIC_URL = "/static/"
 STATICFILES_DIRS = [
     BASE_DIR / "static",]
-
+STATIC_ROOT = BASE_DIR / "static_collected"
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
