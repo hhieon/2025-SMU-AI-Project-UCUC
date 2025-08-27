@@ -20,13 +20,13 @@
         <input type="number" name="topk" value="3" min="1" max="5" class="input" />
       </div>
 
-      <!-- 🔒 현재 멀티모달은 OpenAI Vision 고정 (안내용 비활성) -->
+      <!-- 🔒 현재 멀티모달은 OpenAI Vision 고정 -->
       <div>
         <label class="block text-sm font-medium mb-1">모델 제공사</label>
         <select class="input" disabled>
           <option selected>OpenAI (Vision)</option>
         </select>
-        <small class="muted">사진 인식은 현재 멀티모달 전용 엔진(OpenAI Vision)으로 동작합니다.</small>
+        <small class="muted">사진 인식은 현재 OpenAI Vision 전용 엔진으로 동작합니다.</small>
       </div>
       <div>
         <label class="block text-sm font-medium mb-1">세부 모델</label>
@@ -51,7 +51,7 @@
     {% endif %}
   </section>
 
-  <section class="md:col-span-2 space-y-6">
+  <section class="md:col-span-2 space-y-6" id="photo-result">
     {% if result %}
       <div class="bg-white rounded-2xl shadow p-5 overflow-auto">
         <h3 class="font-semibold mb-3">후보 목록</h3>
@@ -105,4 +105,13 @@
     {% endif %}
   </section>
 </div>
+
+<!-- ✅ 챗봇 결과 반영 스크립트 -->
+<script>
+  function updatePhotoUI(data){
+    const box = document.getElementById("photo-result");
+    if(!box) return;
+    box.innerHTML = `<pre class="codeblock mt-3">${JSON.stringify(data, null, 2)}</pre>`;
+  }
+</script>
 {% endblock %}

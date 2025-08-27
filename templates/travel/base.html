@@ -11,9 +11,8 @@
 </head>
 <body class="bg-slate-50 text-slate-900">
 
-  <!-- 헤더: [햄버거] [브랜드] [오른쪽: 다크 토글] -->
+  <!-- 헤더 -->
   <header class="tg-header bg-gradient-to-r from-sky-600 to-indigo-600 text-white sticky top-0 z-50">
-    <!-- 🔧 폭 확장: max-w-[1400px] -->
     <div class="max-w-[1400px] mx-auto px-4 py-4 flex items-center gap-3">
       <!-- 메뉴 버튼 -->
       <button id="drawer-toggle"
@@ -62,12 +61,12 @@
         <li><a href="/photo/"     class="drawer-link block px-3 py-2 rounded-lg text-slate-700 hover:bg-slate-100">Photo</a></li>
         <li><a href="/translate/" class="drawer-link block px-3 py-2 rounded-lg text-slate-700 hover:bg-slate-100">Translate</a></li>
         <li><a href="/planner/"   class="drawer-link block px-3 py-2 rounded-lg text-slate-700 hover:bg-slate-100">Planner</a></li>
+        <li><a href="/diary/"     class="drawer-link block px-3 py-2 rounded-lg text-slate-700 hover:bg-slate-100">Diary</a></li>
       </ul>
     </nav>
   </aside>
 
   <!-- 본문 -->
-  <!-- 🔧 폭 확장: max-w-[1400px] -->
   <main class="max-w-[1400px] mx-auto px-4 py-6">
     {% block content %}{% endblock %}
   </main>
@@ -75,6 +74,47 @@
   <footer class="py-8 text-center text-slate-500">
     © {% now "Y" %} Travel Companion_UCUC
   </footer>
+
+  <!-- ✅ 전역 챗봇 -->
+  <div id="chatbot-toggle" 
+       class="fixed bottom-6 right-6 bg-indigo-600 text-white px-4 py-2 rounded-full shadow-lg cursor-pointer">
+    💬 챗봇
+  </div>
+
+  <div id="chatbot-panel"
+       class="hidden fixed bottom-20 right-6 w-96 bg-white border rounded-lg shadow-2xl flex flex-col z-50">
+    <div class="flex items-center justify-between bg-indigo-600 text-white px-3 py-2 rounded-t-lg">
+      <span>AI 챗봇</span>
+      <button onclick="document.getElementById('chatbot-panel').classList.add('hidden')" class="text-sm">✖</button>
+    </div>
+
+    <!-- 모델 선택 -->
+    <div class="p-2 border-b flex gap-2">
+      <select id="chat-provider" class="border rounded px-2 py-1 text-sm">
+        <option value="openai">OpenAI</option>
+        <option value="gemini">Gemini</option>
+      </select>
+      <select id="chat-model" class="border rounded px-2 py-1 text-sm">
+        <option value="gpt-4o-mini">gpt-4o-mini</option>
+        <option value="gpt-4.1-mini">gpt-4.1-mini</option>
+        <option value="gpt-4.1">gpt-4.1</option>
+        <option value="gpt-4o">gpt-4o</option>
+        <option value="gpt-5">gpt-5</option>
+        <option value="gemini-1.5-flash">gemini-1.5-flash</option>
+        <option value="gemini-1.5-pro">gemini-1.5-pro</option>
+        <option value="gemini-1.5-flash-8b">gemini-1.5-flash-8b</option>
+      </select>
+    </div>
+
+    <!-- 대화 로그 -->
+    <div id="chat-log" class="p-3 h-64 overflow-y-auto text-sm"></div>
+
+    <!-- 입력 -->
+    <div class="p-2 border-t flex gap-2">
+      <input id="chat-input" class="flex-grow border rounded px-2 py-1 text-sm" placeholder="메시지 입력..." />
+      <button onclick="sendMessage()" class="bg-indigo-600 text-white px-3 py-1 rounded">전송</button>
+    </div>
+  </div>
 
   <!-- 로더 -->
   <div id="loader"
@@ -94,7 +134,7 @@
   <!-- 스크립트 -->
   <script>
     document.addEventListener('DOMContentLoaded', () => {
-      /* 1) 폼 로더 */
+      /* 폼 로더 */
       document.querySelectorAll('form').forEach(f => {
         f.addEventListener('submit', () => {
           document.getElementById('loader')?.classList.remove('hidden');
@@ -102,7 +142,7 @@
         });
       });
 
-      /* 2) 현재 경로 하이라이트 */
+      /* 현재 경로 하이라이트 */
       const norm = p => (p || '/').replace(/\/+$/, '/');
       const path = norm(location.pathname);
       document.querySelectorAll('.drawer-link').forEach(a => {
@@ -112,7 +152,7 @@
         }
       });
 
-      /* 3) 사이드바 토글 */
+      /* 사이드바 토글 */
       const drawer   = document.getElementById('app-sidebar');
       const backdrop = document.getElementById('drawer-backdrop');
       const openBtn  = document.getElementById('drawer-toggle');
@@ -146,9 +186,9 @@
       backdrop?.addEventListener('click', closeDrawer);
       drawer.querySelectorAll('a').forEach(a => a.addEventListener('click', closeDrawer));
 
-      /* 4) 다크모드: OS 자동 + 수동 토글(저장) */
+      /* 다크모드 */
       const root = document.documentElement;
-      const key  = 'tc_theme';     // 'dark' | 'light' | null(자동)
+      const key  = 'tc_theme';
       const btn  = document.getElementById('theme-toggle');
 
       function applyTheme() {
@@ -172,7 +212,6 @@
         else { localStorage.setItem(key,'dark'); root.setAttribute('data-theme','dark'); }
         updateIcon();
       });
-      // OS 테마 변경 시(수동 설정 없을 때만)
       window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', e => {
         if (!localStorage.getItem(key)) {
           if (e.matches) root.setAttribute('data-theme','dark');
@@ -181,7 +220,69 @@
         }
       });
       applyTheme();
+
+      /* ✅ Enter 입력 시 sendMessage() 실행 */
+      const chatInput = document.getElementById("chat-input");
+      if (chatInput) {
+        chatInput.addEventListener("keydown", function(e) {
+          if (e.key === "Enter" && !e.shiftKey) {
+            e.preventDefault();
+            sendMessage();
+          }
+        });
+      }
     });
+
+    /* --- 챗봇 함수 --- */
+    document.getElementById("chatbot-toggle").onclick = () => {
+      document.getElementById("chatbot-panel").classList.toggle("hidden");
+    };
+
+    function sendMessage() {
+      const input    = document.getElementById("chat-input");
+      const log      = document.getElementById("chat-log");
+      const provider = document.getElementById("chat-provider").value;
+      const model    = document.getElementById("chat-model").value;
+      const msg      = input.value.trim();
+      if (!msg) return;
+
+      log.innerHTML += `<div><b>나:</b> ${msg}</div>`;
+      log.innerHTML += `<div id="chat-loading" class="text-gray-500">챗봇: 로딩중...</div>`;
+      log.scrollTop = log.scrollHeight;
+      input.value = "";
+
+      fetch("{% url 'chatbot' %}", {
+        method: "POST",
+        headers: {
+          "X-CSRFToken": "{{ csrf_token }}",
+          "Content-Type": "application/x-www-form-urlencoded"
+        },
+        body: `message=${encodeURIComponent(msg)}&page={{ request.resolver_match.url_name }}&provider=${provider}&model=${model}`
+      })
+      .then(r => r.json())
+      .then(d => {
+        document.getElementById("chat-loading")?.remove();
+        if (d.data) {
+          log.innerHTML += `<div><b>챗봇:</b> 결과가 수정되었습니다 ✅</div>`;
+          if ("{{ request.resolver_match.url_name }}" === "guide") {
+            if (typeof updateGuideUI === "function") updateGuideUI(d.data);
+          } else if ("{{ request.resolver_match.url_name }}" === "planner") {
+            if (typeof updatePlannerUI === "function") updatePlannerUI(d.data);
+          } else if ("{{ request.resolver_match.url_name }}" === "photo") {
+            if (typeof updatePhotoUI === "function") updatePhotoUI(d.data);
+          }
+        } else if (d.reply) {
+          log.innerHTML += `<div><b>챗봇:</b> ${d.reply}</div>`;
+        } else {
+          log.innerHTML += `<div class="text-red-500"><b>에러:</b> ${d.error}</div>`;
+        }
+        log.scrollTop = log.scrollHeight;
+      })
+      .catch(err => {
+        document.getElementById("chat-loading")?.remove();
+        log.innerHTML += `<div class="text-red-500"><b>에러:</b> ${err}</div>`;
+      });
+    }
   </script>
 </body>
 </html>

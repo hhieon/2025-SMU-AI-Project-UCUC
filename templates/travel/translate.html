@@ -51,7 +51,7 @@
       >{{ request.POST.text }}</textarea>
     </div>
 
-    <!-- 🔽 모델 선택 -->
+    <!-- 모델 선택 -->
     <div>
       <label class="block text-sm font-medium mb-1">모델 제공사</label>
       <select name="provider" id="provider" class="input">
@@ -69,7 +69,7 @@
   </form>
 
   <!-- 결과 -->
-  <section class="bg-white rounded-2xl shadow p-5">
+  <section class="bg-white rounded-2xl shadow p-5" id="translate-result">
     <h3 class="font-semibold mb-3">번역 결과</h3>
     {% if result %}
       <div class="whitespace-pre-line text-lg">{{ result }}</div>
@@ -110,5 +110,13 @@
       fillModels();
     }
   });
+
+  // ✅ 챗봇 후속 결과 반영용
+  function updateTranslateUI(data){
+    const box = document.getElementById("translate-result");
+    if(!box) return;
+    box.innerHTML = `<h3 class="font-semibold mb-3">수정된 번역 결과</h3>
+                     <div class="whitespace-pre-line text-lg">${data.reply||""}</div>`;
+  }
 </script>
 {% endblock %}

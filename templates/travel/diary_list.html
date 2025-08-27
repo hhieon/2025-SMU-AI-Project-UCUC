@@ -1,0 +1,84 @@
+{% extends "travel/base.html" %}
+{% block content %}
+
+<div class="diary-header flex justify-between items-center mb-4">
+  <h2>📔 내 일기장</h2>
+  <div class="flex gap-2">
+    <button id="selectBtn" type="button" class="btn-select bg-amber-500 text-white px-3 py-1 rounded">
+      선택
+    </button>
+    <a href="{% url 'diary_create' %}" class="btn-add bg-green-500 text-white px-3 py-1 rounded">
+      새 일기 +
+    </a>
+  </div>
+</div>
+
+<form method="post" action="{% url 'diary_delete' %}">
+  {% csrf_token %}
+<ul class="diary-list space-y-3">
+  {% for d in diaries %}
+    <li class="border-b pb-2 flex items-center gap-2">
+      <input type="checkbox" name="selected" value="{{ d.id }}" class="selectBox hidden">
+      <div class="diary-content flex-1">
+        <a href="{% url 'diary_detail' d.id %}" class="diary-title font-semibold text-blue-600 hover:underline">
+          {{ d.title }}
+        </a>
+        {% if d.mood_emoji %}
+          <span class="ml-2 text-lg">{{ d.mood_emoji }}</span>
+          <!-- ✅ 목록에서도 이모지 수정 버튼 -->
+          <button type="button"
+                  onclick="fixEmoji({{ d.id }})"
+                  class="ml-1 text-xs px-2 py-1 bg-indigo-50 text-indigo-700 rounded">
+            수정
+          </button>
+        {% endif %}
+        <p class="text-gray-600 text-sm">{{ d.content|truncatewords:20 }}</p>
+      </div>
+    </li>
+  {% empty %}
+    <li>아직 작성된 일기가 없습니다. "새 일기 +" 버튼을 눌러 새 일기를 작성해 보세요.</li>
+  {% endfor %}
+</ul>
+
+  <button type="submit" id="deleteBtn"
+          class="btn-delete hidden bg-red-500 text-white px-4 py-2 rounded mt-3">
+    선택 항목 삭제
+  </button>
+</form>
+
+<script>
+let selectionMode = false;
+const selectBtn = document.getElementById("selectBtn");
+const checkboxes = document.querySelectorAll(".selectBox");
+const deleteBtn = document.getElementById("deleteBtn");
+
+selectBtn.addEventListener("click", () => {
+  selectionMode = !selectionMode;
+  checkboxes.forEach(cb => cb.classList.toggle("hidden", !selectionMode));
+  deleteBtn.classList.toggle("hidden", !selectionMode);
+});
+
+function fixEmoji(diaryId){
+  const log = document.getElementById("chat-log");
+  if(log){
+    log.innerHTML += `<div><b>나:</b> 다이어리(${diaryId})의 감정 이모지를 다시 분석해줘</div>`;
+  }
+  fetch("{% url 'chatbot' %}", {
+    method: "POST",
+    headers: {
+      "X-CSRFToken": "{{ csrf_token }}",
+      "Content-Type": "application/x-www-form-urlencoded"
+    },
+    body: `message=${encodeURIComponent("이 다이어리 이모지를 다시 분석해줘")}&page=diary&provider=openai&model=gpt-4o-mini`
+  })
+  .then(r=>r.json())
+  .then(d=>{
+    if(d.reply){
+      if(log){ log.innerHTML += `<div><b>챗봇:</b> ${d.reply}</div>`; }
+      location.reload();
+    }
+  });
+}
+</script>
+
+{% endblock %}

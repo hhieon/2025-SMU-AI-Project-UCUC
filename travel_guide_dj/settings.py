@@ -3,11 +3,11 @@ from pathlib import Path
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 SECRET_KEY = 'django-insecure-3kqt&r#11(ku)ead6ze5i9p@ezk2c2=#5gocft7ry(hbi7b5ht'  # 개발용
-DEBUG = False
+DEBUG = True
 ALLOWED_HOSTS = [
     "127.0.0.1", "localhost",
     "34.64.226.100",
-    "travelcompanion.my", "www.travelcompanion.my", *
+    "travelcompanion.my", "www.travelcompanion.my", "*",
 ]
 
 # 폼 POST/쿠키용(나중에 CSRF 403 막기)
@@ -20,7 +20,7 @@ CSRF_TRUSTED_ORIGINS = [
 INSTALLED_APPS = [
     "django.contrib.admin", "django.contrib.auth", "django.contrib.contenttypes",
     "django.contrib.sessions", "django.contrib.messages", "django.contrib.staticfiles",
-    "travel",
+    "travel", 
 ]
 
 MIDDLEWARE = [

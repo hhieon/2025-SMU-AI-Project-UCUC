@@ -1,0 +1,51 @@
+{% extends "travel/base.html" %}
+{% block content %}
+<h2 class="text-2xl font-bold">{{ diary.title }}</h2>
+<p class="text-gray-500">{{ diary.created_at|date:"Y-m-d H:i" }}</p>
+
+<div class="mt-4">
+  <p>{{ diary.content|linebreaks }}</p>
+</div>
+
+{% if diary.mood_emoji %}
+  <div class="mt-2 flex items-center gap-3">
+    오늘 기분: <span class="text-2xl">{{ diary.mood_emoji }}</span>
+    <!-- ✅ 이모지 수정 버튼 -->
+    <button type="button"
+            onclick="fixEmoji({{ diary.id }})"
+            class="text-xs px-2 py-1 bg-indigo-100 text-indigo-700 rounded">
+      이모지 다시 분석
+    </button>
+  </div>
+{% endif %}
+
+<div class="mt-4 text-sm text-gray-600">
+  사용한 모델: {{ diary.llm_provider }} / {{ diary.llm_model }}
+</div>
+
+<a href="{% url 'diary_list' %}" class="inline-block mt-6 px-4 py-2 bg-gray-200 rounded-lg">← 목록으로</a>
+
+<script>
+  function fixEmoji(diaryId){
+    const log = document.getElementById("chat-log");
+    if(log){
+      log.innerHTML += `<div><b>나:</b> 다이어리(${diaryId})의 감정 이모지를 다시 분석해줘</div>`;
+    }
+    fetch("{% url 'chatbot' %}", {
+      method: "POST",
+      headers: {
+        "X-CSRFToken": "{{ csrf_token }}",
+        "Content-Type": "application/x-www-form-urlencoded"
+      },
+      body: `message=${encodeURIComponent("이 다이어리 이모지를 다시 분석해줘")}&page=diary&provider=openai&model=gpt-4o-mini`
+    })
+    .then(r=>r.json())
+    .then(d=>{
+      if(d.reply){
+        if(log){ log.innerHTML += `<div><b>챗봇:</b> ${d.reply}</div>`; }
+        location.reload(); // ✅ 새 이모지 반영
+      }
+    });
+  }
+</script>
+{% endblock %}

@@ -1,12 +1,14 @@
 # travel/views.py
+from django.views.decorators.csrf import csrf_exempt
 from django.shortcuts import render, redirect
 from django.http import HttpResponse, HttpResponseBadRequest, JsonResponse
 from django.views.decorators.http import require_POST
 from datetime import datetime, timedelta
 import pandas as pd
 import json
+from django.utils import timezone
 import base64
-
+from django.shortcuts import render, redirect, get_object_or_404
 from .llm_providers import ask_llm, DEFAULT_MODEL
 from .utils import (
     run_llm_vision,          # 사진(멀티모달)만 기존 유틸 사용
@@ -15,6 +17,7 @@ from .utils import (
     itinerary_to_ics,
     get_current_weather,     # ✅ 날씨 조회
 )
+from .models import Diary
 
 # 폼 기본 제공사
 DEFAULT_PROVIDER = "openai"
@@ -56,7 +59,7 @@ def guide_view(request):
             "각 POI는 'name','why','time_slot','area','tips' 필드를 가진다.\n"
             "출력 형식 예:\n"
             "{\"city\":\"...\",\"days\":["
-            "{\"day\":1,\"theme\":\"...\",\"items\":[{\"name\":\"...\",\"why\":\"...\","
+            "{\"day\":1,\"theme\":\"...\",\"items\":[{\"name\":\"...\",\"why\":\"...\"," 
             "\"time_slot\":\"09:00-10:30\",\"area\":\"...\",\"tips\":\"...\"}]}]}"
         )
         lang_note = "(한국어로)" if lang == "ko" else "(English)"
@@ -132,6 +135,9 @@ def guide_view(request):
                     }
                 )
         request.session["guide_events"] = all_events
+
+        # ✅ 챗봇 후속 요청을 위한 원본 결과도 세션에 저장
+        request.session["guide_base_result"] = plan
 
         pretty_json = json.dumps(plan, ensure_ascii=False, indent=2)
         ctx["result"] = {"city": city_name, "days": days_list, "pretty_json": pretty_json}
@@ -334,6 +340,9 @@ def planner_view(request):
                     {"error": f"응답 파싱 실패: {e2}", "raw": raw, "provider": provider, "model": model},
                 )
 
+        # ✅ 챗봇 후속 요청 반영을 위해 원본 JSON 저장
+        request.session["planner_base_result"] = obj
+
         # rows 생성
         rows = []
         base = datetime.strptime(start_date, "%Y-%m-%d")
@@ -374,14 +383,6 @@ def planner_view(request):
 def planner_save_api(request):
     """
     FullCalendar에서 수정/추가한 이벤트를 세션에 반영.
-    요청 바디 예:
-    {
-      "events":[
-        {"title":"...", "start":"2025-08-26T09:00:00", "end":"2025-08-26T10:30:00",
-         "location":"...", "notes":"..."},
-        ...
-      ]
-    }
     """
     try:
         payload = json.loads(request.body.decode("utf-8"))
@@ -398,7 +399,6 @@ def planner_save_api(request):
         notes    = ev.get("notes") or ""
         if not title or not start or not end:
             continue
-        # 'YYYY-MM-DDTHH:MM:SS' 파싱
         try:
             sdt = datetime.fromisoformat(start)
             edt = datetime.fromisoformat(end)
@@ -441,3 +441,115 @@ def planner_ics_download(request):
     resp = HttpResponse(ics, content_type="text/calendar")
     resp["Content-Disposition"] = f'attachment; filename="{city}_itinerary.ics"'
     return resp
+
+
+# --- Diary 기능 (세션 기반) ---
+def analyze_mood_with_llm(content, provider, model):
+    system_prompt = "너는 감정을 분석하는 도우미야. 입력된 텍스트의 감정을 나타내는 적절한 이모지 하나만 출력해."
+    user_prompt = content
+    try:
+        result = ask_llm(provider, model, system_prompt, user_prompt, temperature=0.0, max_tokens=10)
+        # 혹시 이모지가 아닌 텍스트가 나오면 첫 글자만 추출
+        return result.strip().split()[0]
+    except Exception as e:
+        print("⚠️ LLM 분석 오류:", e)
+        return "❓"
+
+# =========================
+# 일기 관련 뷰
+# =========================
+def diary_list(request):
+    session_key = request.session.session_key or request.session.save() or request.session.session_key
+    diaries = Diary.objects.filter(session_key=session_key).order_by("-created_at")
+    return render(request, "travel/diary_list.html", {"diaries": diaries})
+
+def diary_detail(request, pk):
+    diary = get_object_or_404(Diary, pk=pk)
+    return render(request, "travel/diary_detail.html", {"diary": diary})
+
+def diary_create(request):
+    if request.method == "POST":
+        title = request.POST.get("title")
+        content = request.POST.get("content")
+        llm_provider = request.POST.get("llm_provider")
+        llm_model = request.POST.get("llm_model")
+
+        # ✅ LLM으로 감정 분석 실행
+        mood_emoji = analyze_mood_with_llm(content, llm_provider, llm_model)
+
+        Diary.objects.create(
+            title=title,
+            content=content,
+            created_at=timezone.now(),
+            session_key=request.session.session_key,
+            llm_provider=llm_provider,
+            llm_model=llm_model,
+            mood_emoji=mood_emoji,
+        )
+        return redirect("diary_list")
+
+    return render(request, "travel/diary_form.html")
+@require_POST
+def diary_delete(request):
+    if not request.session.session_key:
+        request.session.create()
+
+    ids = request.POST.getlist("selected")
+    if ids:
+        Diary.objects.filter(session_key=request.session.session_key, id__in=ids).delete()
+    return redirect("diary_list")
+
+@csrf_exempt
+def chatbot(request):
+    """
+    모든 기능(가이드/사진/번역/플래너)에 대한 질문을 수용하는 챗봇
+    (📔 Diary 페이지는 제외)
+    """
+    if request.method != "POST":
+        return JsonResponse({"error": "POST만 지원합니다."}, status=405)
+
+    user_msg   = request.POST.get("message", "").strip()
+    page       = request.POST.get("page", "unknown")
+    provider   = (request.POST.get("provider") or DEFAULT_PROVIDER).lower()
+    model      = request.POST.get("model") or DEFAULT_MODEL.get(provider)
+
+    # 📔 Diary 페이지는 제외
+    if page == "diary":
+        return JsonResponse({"reply": "📔 일기 페이지에서는 챗봇 기능이 제공되지 않습니다."})
+
+    # ✅ 기존 결과 불러오기 (없으면 빈 dict/list라도 유지)
+    base_result = request.session.get(f"{page}_base_result", {})
+
+    # ✅ 프롬프트: JSON 구조 절대 삭제/변형 금지
+    sys_prompt = (
+        f"너는 여행 도우미 JSON 편집기야. 현재 페이지는 '{page}'다.\n"
+        f"아래의 기존 JSON 결과를 절대 삭제하지 말고, 전체 구조와 키를 그대로 유지해라.\n"
+        f"사용자의 요청이 특정 부분(예: Day 1 아이템 일부)만 수정이라면, 해당 부분만 바꾸고 나머지는 그대로 둬.\n"
+        f"새로운 Day를 추가하거나 기존 Day를 삭제하지 마라.\n"
+        f"⚠️ 반드시 순수 JSON만 출력해야 하며, JSON 외의 텍스트는 절대 쓰지 마라.\n\n"
+        f"[기존 결과]\n{json.dumps(base_result, ensure_ascii=False)[:3000]}"
+    )
+
+    try:
+        raw_reply = ask_llm(
+            provider=provider, model=model,
+            system=sys_prompt, user=f"사용자 요청: {user_msg}\n\nJSON만 출력해.",
+            temperature=0.5, max_tokens=1500
+        )
+
+        # ✅ JSON 파싱 시도
+        try:
+            new_json = safe_json_loads(raw_reply)
+            # 세션에 갱신
+            request.session[f"{page}_base_result"] = new_json
+            return JsonResponse({"data": new_json})
+        except Exception:
+            # JSON 파싱 실패 → 기존 결과 유지 + 경고
+            return JsonResponse({
+                "data": base_result,
+                "warning": "⚠️ LLM이 JSON이 아닌 텍스트를 반환했습니다. 변경이 적용되지 않았습니다.",
+                "raw": raw_reply[:500]  # 디버깅용 일부만 노출
+            })
+
+    except Exception as e:
+        return JsonResponse({"error": f"LLM 오류: {e}"}, status=500)

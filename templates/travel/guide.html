@@ -57,7 +57,7 @@
     {% endif %}
   </section>
 
-  <section class="md:col-span-2 space-y-6">
+  <section class="md:col-span-2 space-y-6" id="guide-result">
 
     {# ✅ 날씨 카드 (POST 후 보여줌) #}
     {% if weather %}
@@ -81,52 +81,54 @@
     {% endif %}
 
     {% if result %}
-      <div class="flex items-center justify-between">
-        <h2 class="text-xl font-semibold">{{ result.city }} 추천 일정</h2>
-        <form method="post" action="/guide/ics/">
-          {% csrf_token %}
-          <input type="hidden" name="city" value="{{ result.city }}">
-          <button class="btn-secondary">📆 ICS 다운로드</button>
-        </form>
-      </div>
+      <div id="guide-ui">
+        <div class="flex items-center justify-between">
+          <h2 class="text-xl font-semibold">{{ result.city }} 추천 일정</h2>
+          <form method="post" action="/guide/ics/">
+            {% csrf_token %}
+            <input type="hidden" name="city" value="{{ result.city }}">
+            <button class="btn-secondary">📆 ICS 다운로드</button>
+          </form>
+        </div>
 
-      <div class="space-y-5">
-        {% for day in result.days %}
-          <div class="bg-white rounded-2xl shadow overflow-hidden">
-            <div class="px-5 py-4 border-b">
-              <div class="text-sm text-slate-500">Day {{ day.day }}</div>
-              <div class="text-lg font-semibold">{{ day.theme }}</div>
+        <div class="space-y-5">
+          {% for day in result.days %}
+            <div class="bg-white rounded-2xl shadow overflow-hidden">
+              <div class="px-5 py-4 border-b">
+                <div class="text-sm text-slate-500">Day {{ day.day }}</div>
+                <div class="text-lg font-semibold">{{ day.theme }}</div>
+              </div>
+              <div class="divide-y">
+                {% for it in day.items %}
+                  <div class="p-5 grid md:grid-cols-12 gap-4 items-start">
+                    <div class="md:col-span-2">
+                      <div class="text-sm font-medium text-indigo-700">{{ it.time_slot|default:"" }}</div>
+                      <div class="text-xs text-slate-500">{{ it.area }}</div>
+                    </div>
+                    <div class="md:col-span-7">
+                      <div class="font-semibold">{{ it.name }}</div>
+                      <div class="text-sm text-slate-700 mt-1">{{ it.why }}</div>
+                      {% if it.tips %}
+                        <div class="text-xs mt-2 text-amber-700 bg-amber-50 inline-block px-2 py-1 rounded">TIP: {{ it.tips }}</div>
+                      {% endif %}
+                    </div>
+                    <div class="md:col-span-3">
+                      {% if it.thumb %}
+                        <img src="{{ it.thumb }}" alt="{{ it.name }}" class="w-full h-24 object-cover rounded-xl">
+                      {% endif %}
+                    </div>
+                  </div>
+                {% endfor %}
+              </div>
             </div>
-            <div class="divide-y">
-              {% for it in day.items %}
-                <div class="p-5 grid md:grid-cols-12 gap-4 items-start">
-                  <div class="md:col-span-2">
-                    <div class="text-sm font-medium text-indigo-700">{{ it.time_slot|default:"" }}</div>
-                    <div class="text-xs text-slate-500">{{ it.area }}</div>
-                  </div>
-                  <div class="md:col-span-7">
-                    <div class="font-semibold">{{ it.name }}</div>
-                    <div class="text-sm text-slate-700 mt-1">{{ it.why }}</div>
-                    {% if it.tips %}
-                      <div class="text-xs mt-2 text-amber-700 bg-amber-50 inline-block px-2 py-1 rounded">TIP: {{ it.tips }}</div>
-                    {% endif %}
-                  </div>
-                  <div class="md:col-span-3">
-                    {% if it.thumb %}
-                      <img src="{{ it.thumb }}" alt="{{ it.name }}" class="w-full h-24 object-cover rounded-xl">
-                    {% endif %}
-                  </div>
-                </div>
-              {% endfor %}
-            </div>
-          </div>
-        {% endfor %}
-      </div>
+          {% endfor %}
+        </div>
 
-      <details class="bg-white rounded-2xl shadow p-5">
-        <summary class="cursor-pointer font-semibold">원문 JSON 보기 (디버그용)</summary>
-        <pre class="codeblock mt-3">{{ result.pretty_json }}</pre>
-      </details>
+        <details class="bg-white rounded-2xl shadow p-5">
+          <summary class="cursor-pointer font-semibold">원문 JSON 보기 (디버그용)</summary>
+          <pre class="codeblock mt-3">{{ result.pretty_json }}</pre>
+        </details>
+      </div>
     {% else %}
       <div class="bg-white rounded-2xl shadow p-10 text-center text-slate-500">
         왼쪽 폼에 정보를 입력하고 <b>루트 추천</b>을 눌러주세요.
@@ -135,15 +137,13 @@
   </section>
 </div>
 
-<!-- ✅ 모델 목록 채우는 스크립트: 결과 유무와 상관없이 항상 실행 -->
+<!-- ✅ 모델 목록 채우는 스크립트 -->
 <script>
-  // 서버에서 포스트백된 선택값 유지
   const SELECTED = {
     provider: "{{ provider|default:'openai' }}",
     model: "{{ model|default:'' }}"
   };
 
-  // 프론트 카탈로그 (백엔드와 동일하게 유지)
   const MODEL_CATALOG = {
     openai: ["gpt-4o-mini","gpt-4.1-mini","gpt-4.1","gpt-4o","gpt-5"],
     gemini: ["gemini-1.5-flash","gemini-1.5-pro","gemini-1.5-flash-8b"]
@@ -152,7 +152,7 @@
   function fillModels() {
     const prov = document.getElementById('provider');
     const modelSel = document.getElementById('model');
-    if (!prov || !modelSel) return;  // 폼이 렌더링되지 않은 경우 대비
+    if (!prov || !modelSel) return;
 
     const list = MODEL_CATALOG[prov.value] || [];
     modelSel.innerHTML = "";
@@ -172,5 +172,69 @@
       fillModels();
     }
   });
+
+  /* ✅ 챗봇 결과 반영 함수 */
+  function updateGuideUI(data){
+    const box = document.getElementById("guide-result");
+    if(!box) return;
+
+    // 도시명
+    let html = `
+      <div id="guide-ui">
+        <div class="flex items-center justify-between">
+          <h2 class="text-xl font-semibold">${data.city || ''} 추천 일정</h2>
+          <form method="post" action="/guide/ics/">
+            {% csrf_token %}
+            <input type="hidden" name="city" value="${data.city || ''}">
+            <button class="btn-secondary">📆 ICS 다운로드</button>
+          </form>
+        </div>
+    `;
+
+    if(data.days){
+      html += `<div class="space-y-5">`;
+      data.days.forEach(day => {
+        html += `
+        <div class="bg-white rounded-2xl shadow overflow-hidden">
+          <div class="px-5 py-4 border-b">
+            <div class="text-sm text-slate-500">Day ${day.day}</div>
+            <div class="text-lg font-semibold">${day.theme || ''}</div>
+          </div>
+          <div class="divide-y">`;
+        (day.items || []).forEach(it => {
+          html += `
+            <div class="p-5 grid md:grid-cols-12 gap-4 items-start">
+              <div class="md:col-span-2">
+                <div class="text-sm font-medium text-indigo-700">${it.time_slot || ''}</div>
+                <div class="text-xs text-slate-500">${it.area || ''}</div>
+              </div>
+              <div class="md:col-span-7">
+                <div class="font-semibold">${it.name || ''}</div>
+                <div class="text-sm text-slate-700 mt-1">${it.why || ''}</div>`;
+          if(it.tips){
+            html += `<div class="text-xs mt-2 text-amber-700 bg-amber-50 inline-block px-2 py-1 rounded">TIP: ${it.tips}</div>`;
+          }
+          html += `</div>
+              <div class="md:col-span-3">`;
+          if(it.thumb){
+            html += `<img src="${it.thumb}" alt="${it.name}" class="w-full h-24 object-cover rounded-xl">`;
+          }
+          html += `</div></div>`;
+        });
+        html += `</div></div>`;
+      });
+      html += `</div>`;
+    }
+
+    // JSON 디버그
+    html += `
+      <details class="bg-white rounded-2xl shadow p-5">
+        <summary class="cursor-pointer font-semibold">원문 JSON 보기 (디버그용)</summary>
+        <pre class="codeblock mt-3">${JSON.stringify(data, null, 2)}</pre>
+      </details>
+      </div>`;
+
+    box.innerHTML = html;
+  }
 </script>
 {% endblock %}

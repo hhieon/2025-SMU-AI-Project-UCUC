@@ -58,10 +58,9 @@
     <button class="btn-primary w-full">계획 생성</button>
   </form>
 
-  <!-- 가운데: 결과 패널(살짝 좁힘) -->
-  <section class="space-y-4 max-w-[780px]">
+  <!-- 가운데: 결과 패널 -->
+  <section class="space-y-4 max-w-[780px]" id="planner-result">
 
-    {# ✅ 날씨 카드 (POST 후 보여줌) #}
     {% if weather %}
       <div class="bg-white rounded-2xl shadow p-4 flex items-center gap-4">
         <img src="{{ weather.icon_url }}" alt="{{ weather.desc }}" class="w-12 h-12">
@@ -126,7 +125,7 @@
     {% endif %}
   </section>
 
-  <!-- 오른쪽: 달력 (넓게 + 고정 높이) -->
+  <!-- 오른쪽: 달력 -->
   <aside class="space-y-3">
     <div id="planner-cal" class="bg-white rounded-2xl shadow w-full" style="height:760px"></div>
 
@@ -137,9 +136,8 @@
   </aside>
 </div>
 
-<!-- 스크립트(모델 셀렉트 + 캘린더 초기화) -->
+<!-- 스크립트 -->
 <script>
-  /* 모델 셀렉트 */
   const SELECTED = { provider: "{{ provider|default:'openai' }}", model: "{{ model|default:'' }}" };
   const MODEL_CATALOG = {
     openai: ["gpt-4o-mini","gpt-4.1-mini","gpt-4.1","gpt-4o","gpt-5"],
@@ -160,7 +158,6 @@
   document.getElementById('provider')?.addEventListener('change', ()=>{ SELECTED.model=""; fillModels(); });
   fillModels();
 
-  /* 서버 생성 결과 → 초기 달력 이벤트 */
   window.initialEvents = [
     {% if table_rows %}
       {% for r in table_rows %}
@@ -180,22 +177,18 @@
     const initial = "{{ cal_start|default:'' }}";
     const initialDate = initial || new Date().toISOString().slice(0,10);
 
-    // 높이 고정(무한 리사이즈 방지)
     el.style.height = '760px';
 
-    const cal = new FullCalendar.Calendar(el, {
+    // ✅ 전역 변수로 선언
+    window.cal = new FullCalendar.Calendar(el, {
       initialDate,
       initialView: 'timeGridWeek',
       headerToolbar: { left:'prev,next today', center:'title', right:'dayGridMonth,timeGridWeek,timeGridDay' },
       selectable: true,
-      selectMirror: true,
-
-      /* ✅ 드래그 & 리사이즈 */
       editable: true,
       eventStartEditable: true,
       eventDurationEditable: true,
       eventResizableFromStart: true,
-
       height: 760,
       expandRows: true,
       slotMinTime: '06:00:00',
@@ -204,8 +197,8 @@
 
       select(info){
         const t = prompt('일정 제목을 입력하세요');
-        if(t){ cal.addEvent({ title:t, start:info.startStr, end:info.endStr }); saveToServer(); }
-        cal.unselect();
+        if(t){ window.cal.addEvent({ title:t, start:info.startStr, end:info.endStr }); saveToServer(); }
+        window.cal.unselect();
       },
       eventClick(info){
         const t = prompt('제목 수정(빈칸→삭제)', info.event.title);
@@ -213,23 +206,21 @@
         if(t.trim()===''){ info.event.remove(); saveToServer(); }
         else{ info.event.setProp('title', t.trim()); saveToServer(); }
       },
-      eventDrop(){ saveToServer(); },      // ✅ 드래그로 날짜/시간 이동
-      eventResize(){ saveToServer(); }     // ✅ 길이 리사이즈
+      eventDrop(){ saveToServer(); },
+      eventResize(){ saveToServer(); }
     });
-    cal.render();
+    window.cal.render();
 
-    // 디바운스된 resize만 사용
     const debounce = (fn, ms=150)=>{ let t; return (...a)=>{ clearTimeout(t); t=setTimeout(()=>fn(...a), ms); } };
-    window.addEventListener('resize', debounce(()=> cal.updateSize(), 150));
+    window.addEventListener('resize', debounce(()=> window.cal.updateSize(), 150));
 
-    // 공통 저장 함수
     function csrf(){
       const el = document.querySelector('input[name=csrfmiddlewaretoken]');
       return el ? el.value : '';
     }
     async function saveToServer(){
       const payload = {
-        events: cal.getEvents().map(e=>({
+        events: window.cal.getEvents().map(e=>({
           title: e.title,
           start: e.start ? e.start.toISOString().slice(0,19) : null,
           end:   e.end   ? e.end.toISOString().slice(0,19)   : (e.start ? e.start.toISOString().slice(0,19) : null),
@@ -243,12 +234,60 @@
           headers:{ 'Content-Type':'application/json', 'X-CSRFToken': csrf() },
           body: JSON.stringify(payload)
         });
-        await r.json(); // {ok:true,count:n}
-        // console.log('saved', d);
+        await r.json();
       }catch(err){ console.error('달력 저장 실패:', err); }
     }
 
     document.getElementById('save-cal')?.addEventListener('click', saveToServer);
   });
+
+  // ✅ 챗봇 후속 결과 반영용
+  function updatePlannerUI(data){
+    const box = document.getElementById("planner-result");
+    if(!box) return;
+
+    // 테이블 갱신
+    if(data.days){
+      let html = `<div class="bg-white rounded-2xl shadow p-5"><h3 class="font-semibold">챗봇이 수정한 일정</h3></div>`;
+      html += `<div class="bg-white rounded-2xl shadow p-5 overflow-auto"><table class="min-w-full text-sm"><thead class="text-left text-slate-600"><tr><th>Day</th><th>시작</th><th>종료</th><th>제목</th><th>장소</th><th>메모</th></tr></thead><tbody class="divide-y">`;
+      data.days.forEach(day=>{
+        day.items.forEach(it=>{
+          html += `<tr class="hover:bg-slate-50"><td class="py-2">Day ${day.day}</td><td>${it.start||""}</td><td>${it.end||""}</td><td>${it.title||""}</td><td>${it.location||""}</td><td>${it.notes||""}</td></tr>`;
+        });
+      });
+      html += `</tbody></table></div>`;
+      box.innerHTML = html;
+
+      // ✅ FullCalendar 갱신
+      if(window.cal){
+        window.cal.removeAllEvents();
+        data.days.forEach(day=>{
+          day.items.forEach(it=>{
+            if(it.start && it.end){
+              const baseDate = new Date(window.initialEvents?.[0]?.start || new Date());
+              const d0 = new Date(baseDate);
+              d0.setDate(d0.getDate() + (day.day-1));
+
+              const start = new Date(d0.toISOString().split("T")[0] + "T" + (it.start || "09:00"));
+              const end   = new Date(d0.toISOString().split("T")[0] + "T" + (it.end   || "10:00"));
+
+              window.cal.addEvent({
+                title: it.title || "",
+                start: start.toISOString(),
+                end:   end.toISOString(),
+                extendedProps: {
+                  location: it.location || "",
+                  notes: it.notes || ""
+                }
+              });
+            }
+          });
+        });
+        window.cal.render();
+      }
+    }else{
+      box.innerHTML = `<pre class="codeblock mt-3">${JSON.stringify(data,null,2)}</pre>`;
+    }
+  }
 </script>
 {% endblock %}
