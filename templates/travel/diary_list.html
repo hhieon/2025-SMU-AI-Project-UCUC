@@ -2,13 +2,13 @@
 {% block content %}
 
 <div class="diary-header flex justify-between items-center mb-4">
-  <h2>📔 내 일기장</h2>
+  <h1 class="text-2xl font-semibold mb-4">📔내 일기장</h1>
   <div class="flex gap-2">
     <button id="selectBtn" type="button" class="btn-select bg-amber-500 text-white px-3 py-1 rounded">
       선택
     </button>
     <a href="{% url 'diary_create' %}" class="btn-add bg-green-500 text-white px-3 py-1 rounded">
-      새 일기 +
+      일기쓰기+
     </a>
   </div>
 </div>
@@ -25,7 +25,7 @@
         </a>
         {% if d.mood_emoji %}
           <span class="ml-2 text-lg">{{ d.mood_emoji }}</span>
-          <!-- ✅ 목록에서도 이모지 수정 버튼 -->
+          <!-- 목록에서도 이모지 수정 버튼 -->
           <button type="button"
                   onclick="fixEmoji({{ d.id }})"
                   class="ml-1 text-xs px-2 py-1 bg-indigo-50 text-indigo-700 rounded">
@@ -36,7 +36,7 @@
       </div>
     </li>
   {% empty %}
-    <li>아직 작성된 일기가 없습니다. "새 일기 +" 버튼을 눌러 새 일기를 작성해 보세요.</li>
+    <li>아직 작성된 일기가 없습니다. "일기쓰기+" 버튼을 눌러 새 일기를 작성해 보세요.</li>
   {% endfor %}
 </ul>
 

@@ -23,7 +23,7 @@
   사용한 모델: {{ diary.llm_provider }} / {{ diary.llm_model }}
 </div>
 
-<a href="{% url 'diary_list' %}" class="inline-block mt-6 px-4 py-2 bg-gray-200 rounded-lg">← 목록으로</a>
+<a href="{% url 'diary_list' %}" class="inline-block mt-6 px-4 py-2 bg-gray-200 rounded-lg">목록으로</a>
 
 <script>
   function fixEmoji(diaryId){
@@ -43,7 +43,7 @@
     .then(d=>{
       if(d.reply){
         if(log){ log.innerHTML += `<div><b>챗봇:</b> ${d.reply}</div>`; }
-        location.reload(); // ✅ 새 이모지 반영
+        location.reload(); // 새 이모지 반영
       }
     });
   }

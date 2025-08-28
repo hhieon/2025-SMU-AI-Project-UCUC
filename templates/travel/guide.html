@@ -1,11 +1,11 @@
 {% extends "travel/base.html" %}
 {% block title %}Guide{% endblock %}
 {% block content %}
-<h1 class="text-2xl font-semibold mb-4">📍 도시 가이드 (여행 루트 추천)</h1>
+<h1 class="text-2xl font-semibold mb-4">📍도시 가이드 (여행 루트 추천)</h1>
 
 <div class="grid md:grid-cols-3 gap-6">
   <section class="md:col-span-1">
-    <!-- ✅ 모델 제공사/세부모델을 '폼 안'으로 이동 -->
+    <!-- 모델 제공사/세부모델을 '폼 안'으로 이동 -->
     <form method="post" class="bg-white rounded-2xl shadow p-5 space-y-4">{% csrf_token %}
       <div>
         <label class="block text-sm font-medium mb-1">도시/지역명</label>
@@ -30,20 +30,21 @@
         <input name="prefs" placeholder="야경, 카페, 미식 등" class="input" />
       </div>
 
-      <!-- 🔽 모델 제공사 선택 -->
+      <!-- 모델 제공사 선택 -->
       <div>
         <label class="block text-sm font-medium mb-1">모델 제공사</label>
         <select name="provider" id="provider" class="input">
           <option value="openai" {% if provider == "openai" or not provider %}selected{% endif %}>OpenAI</option>
           <option value="gemini" {% if provider == "gemini" %}selected{% endif %}>Google Gemini</option>
         </select>
+        <small class="muted">계정/시점에 따라 일부 모델은 미지원일 수 있어요.</small>
       </div>
 
-      <!-- 🔽 세부 모델 선택 (제공사에 따라 자동 채움) -->
+      <!-- 세부 모델 선택 (제공사에 따라 자동 채움) -->
       <div>
         <label class="block text-sm font-medium mb-1">세부 모델</label>
         <select name="model" id="model" class="input"></select>
-        <small class="muted">계정/시점에 따라 일부 모델은 미지원일 수 있어요.</small>
+
       </div>
 
       <button class="btn-primary w-full">루트 추천</button>
@@ -228,7 +229,7 @@
 
     // JSON 디버그
     html += `
-      <details class="bg-white rounded-2xl shadow p-5">
+      <details class="bg-white rounded-2xl shadow p-5 ">
         <summary class="cursor-pointer font-semibold">원문 JSON 보기 (디버그용)</summary>
         <pre class="codeblock mt-3">${JSON.stringify(data, null, 2)}</pre>
       </details>

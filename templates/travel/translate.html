@@ -34,7 +34,7 @@
       <div>
         <label class="block text-sm font-medium mb-1">말투</label>
         <select name="tone" class="input">
-          <option value="중립" {% if request.POST.tone == "중립" or not request.POST.tone %}selected{% endif %}>중립</option>
+          <option value="중립" {% if request.POST.tone == "중립" or not request.POST.tone %}selected{% endif %}>기본</option>
           <option value="격식" {% if request.POST.tone == "격식" %}selected{% endif %}>격식</option>
           <option value="친근" {% if request.POST.tone == "친근" %}selected{% endif %}>친근</option>
         </select>

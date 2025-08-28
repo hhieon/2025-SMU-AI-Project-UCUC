@@ -1,19 +1,19 @@
 {% extends "travel/base.html" %}
 {% block title %}Photo{% endblock %}
 {% block content %}
-<h1 class="text-2xl font-semibold mb-4">📸 사진 장소 (업로드 → 장소 식별)</h1>
+<h1 class="text-2xl font-semibold mb-4">📸사진 장소 (업로드 → 장소 식별)</h1>
 
 <div class="grid md:grid-cols-3 gap-6">
   <section class="md:col-span-1">
     <form method="post" enctype="multipart/form-data" class="bg-white rounded-2xl shadow p-5 space-y-4">
       {% csrf_token %}
       <div>
-        <label class="block text-sm font-medium mb-1">도시 힌트(선택)</label>
-        <input name="city_hint" class="input" placeholder="예: Seoul / Tokyo (비워도 됨)" />
+        <label class="block text-sm font-medium mb-1">도시 힌트 (선택)</label>
+        <input name="city_hint" class="input" placeholder="예: Seoul / Tokyo" />
       </div>
       <div>
-        <label class="block text-sm font-medium mb-1">국가 힌트(선택)</label>
-        <input name="country_hint" class="input" placeholder="예: South Korea / Japan (비워도 됨)" />
+        <label class="block text-sm font-medium mb-1">국가 힌트 (선택)</label>
+        <input name="country_hint" class="input" placeholder="예: South Korea / Japan" />
       </div>
       <div>
         <label class="block text-sm font-medium mb-1">최대 후보 수</label>
