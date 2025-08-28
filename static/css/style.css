@@ -33,18 +33,7 @@
 
 /* OS 다크 기본값 (사용자 저장값이 없을 때) */
 @media (prefers-color-scheme: dark) {
-  :root {
-    --bg: #0b1220;
-    --surface: #0f172a;
-    --text: #e5e7eb;
-    --muted: #94a3b8;
-    --border: #1f2937;
-    --border-strong: #334155;
-    --ring: rgba(14,165,233,.35);
-
-    --header-from: #0b1220;
-    --header-to:   #1f2937;
-  }
+  
 }
 
 /* 수동 다크모드 (html[data-theme="dark"]) */
