@@ -41,6 +41,61 @@
       </div>
     </div>
 
+    <!-- 입력 폼 버튼 바로 아래에 추가 -->
+    <div class="flex gap-2 mt-2">
+      <button type="button" id="micBtn" class="btn-secondary flex-1">🎤 말하기</button>
+      <button type="button" id="speakBtn" class="btn-secondary flex-1">🔊 번역 듣기</button>
+    </div>
+
+    <script>
+      document.addEventListener('DOMContentLoaded', () => {
+        // --- STT: 마이크 입력 ---
+        const micBtn = document.getElementById("micBtn");
+        const inputText = document.querySelector("textarea[name='text']");
+        let recognition;
+
+        if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
+          const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+          recognition = new SpeechRecognition();
+          recognition.lang = "ko-KR"; // 한국어 기준
+          recognition.interimResults = false;
+          recognition.maxAlternatives = 1;
+
+          micBtn.addEventListener("click", () => {
+            recognition.start();
+          });
+
+          recognition.onresult = (event) => {
+            const speechResult = event.results[0][0].transcript;
+            inputText.value = speechResult;  // ✅ 말한 내용이 원문 textarea에 자동 입력
+          };
+
+          recognition.onerror = (event) => {
+            alert("음성 인식 오류: " + event.error);
+          };
+        } else {
+          micBtn.disabled = true;
+          micBtn.innerText = "🎤 (지원 안됨)";
+        }
+
+        // --- TTS: 번역 결과 읽기 ---
+        const speakBtn = document.getElementById("speakBtn");
+        speakBtn.addEventListener("click", () => {
+          const textEl = document.querySelector("#translate-result .whitespace-pre-line");
+          if(!textEl) return;
+          const text = textEl.innerText.trim();
+          if(!text) return;
+
+          const utterance = new SpeechSynthesisUtterance(text);
+          const tgtLang = document.querySelector("select[name='tgt']").value || "en";
+          const langMap = { ko:"ko-KR", en:"en-US", ja:"ja-JP", zh:"zh-CN" };
+          utterance.lang = langMap[tgtLang] || "en-US";
+          speechSynthesis.speak(utterance);
+        });
+      });
+    </script>
+
+
     <div>
       <label class="block text-sm font-medium mb-1">원문</label>
       <textarea
