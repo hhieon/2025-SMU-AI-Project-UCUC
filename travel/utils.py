@@ -5,7 +5,7 @@ import json as _json
 import urllib.parse as _urlparse
 import urllib.request as _urlreq
 import requests
-
+import logging
 # =========================================================
 # 🔑 로컬 전용 OpenAI 키 (절대 공개 저장소 업로드 금지)
 #  - 너가 전에 준 키를 그대로 하드코딩 (원하면 바꿔도 됨)
@@ -19,7 +19,8 @@ def _geocode_city_openmeteo(name: str, lang: str = "en"):
     data = r.json() or {}
     results = data.get("results") or []
     if not results:
-        raise ValueError("no geocoding result")
+        logging.error("No geocoding result")
+        return None
     return results[0]  # {latitude, longitude, name, country_code, admin1, timezone ...}
 
 # WMO 코드 → 설명(ko/en)
@@ -197,9 +198,15 @@ def safe_json_loads(raw: str):
     l = txt.find("{"); r = txt.rfind("}")
     if l != -1 and r != -1 and r > l:
         for j in range(r, l, -1):
-            try: return json.loads(txt[l:j+1])
-            except Exception: continue
-    raise ValueError("JSON 추출 실패")
+            try: 
+                return json.loads(txt[l:j+1])
+            except Exception: 
+                continue
+        logging.error("JSON 추출 실패")
+        return None
+    else:
+        logging.error("JSON 추출 실패")
+        return None
 
 # ---------- Wikimedia / Commons (UA + 백오프) ----------
 USER_AGENT = "TravelGuideDjango/1.0 (contact: you@example.com)"
@@ -214,18 +221,35 @@ def _http_get(url, params, tries=4, base_sleep=0.7):
         try:
             r = SESSION.get(url, params=params, timeout=20)
             if r.status_code in (429, 503):
-                time.sleep(base_sleep*(i+1)+random.random()*0.3); last = r; continue
-            r.raise_for_status(); return r
+                time.sleep(base_sleep * (i+1) + random.random() * 0.3)
+                last = r
+                continue
+            r.raise_for_status()
+            return r
         except requests.HTTPError as e:
             last = e.response
             if last is not None and last.status_code in (429, 503):
-                time.sleep(base_sleep*(i+1)+random.random()*0.3); continue
-            raise
+                time.sleep(base_sleep * (i+1) + random.random() * 0.3)
+                continue
+            import logging
+            logging.error(f"HTTPError in _http_get: {e}")
+            return None
         except Exception as e:
             last = e
-            time.sleep(base_sleep*(i+1)+random.random()*0.3)
-    if isinstance(last, requests.Response): last.raise_for_status()
-    else: raise requests.HTTPError("HTTP GET failed after retries")
+            time.sleep(base_sleep * (i+1) + random.random() * 0.3)
+
+    if isinstance(last, requests.Response):
+        try:
+            last.raise_for_status()
+            return last
+        except Exception as e:
+            import logging
+            logging.error(f"HTTP GET failed: {e}")
+            return None
+    else:
+        import logging
+        logging.error("HTTP GET failed after retries")
+        return None
 
 def _looks_korean(text: str) -> bool:
     return bool(re.search(r"[\uac00-\ud7a3]", text or ""))
@@ -265,17 +289,25 @@ def commons_image_search(query: str, limit: int = 50):
     except Exception:
         return []
 
-def commons_first_image_url(file_title: str, thumb_width: int = 900):
+def commons_image_search(query: str, limit: int = 50):
     try:
-        params = {"action":"query","format":"json","prop":"imageinfo","titles":file_title,"iiprop":"url","iiurlwidth":thumb_width}
+        params = {
+            "action": "query",
+            "format": "json",
+            "list": "search",
+            "srsearch": query,
+            "srlimit": limit,
+            "srnamespace": 6,  # 파일 네임스페이스 (이미지 검색용)
+        }
         r = _http_get(COMMONS_API, params)
-        pages = r.json().get("query", {}).get("pages", {})
-        for _, p in pages.items():
-            infos = p.get("imageinfo", [])
-            if infos: return infos[0].get("thumburl") or infos[0].get("url")
-    except Exception:
-        pass
-    return None
+        if not r:
+            return []  # 실패 시 빈 리스트 반환
+        return r.json().get("query", {}).get("search", [])
+    except Exception as e:
+        import logging
+        logging.error(f"commons_image_search failed: {e}")
+        return []
+
 
 def best_photo_for_place(place_name: str, lang: str = "auto"):
     try:
